@@ -2,6 +2,7 @@ from services.mongodb import DBMongo
 from services.process import Pipelines
 import customtkinter as ctk
 from ui.sidebar import Sidebar
+from tkinter import messagebox
 
 from ui.inicio import InicioFrame
 from ui.configuracion import ConfiguracionFrame
@@ -37,8 +38,17 @@ class App(ctk.CTk):
         super().__init__()
 
         self.title("Aplicación de Escritorio")
-        self.geometry("1225x600")
-        self.resizable(False, False)
+        window_width = 1225
+        window_height = 600
+        # Calculando el centro
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+        # Calcular posición
+        x = int((screen_width / 2) - (window_width / 2))
+        y = int((screen_height / 2) - (window_height / 2))
+        self.geometry(f"{window_width}x{window_height}+{x}+{y}")
+        
+        self.resizable(True, True)
 
         self.process = None  # Se asignará luego
 
@@ -58,7 +68,13 @@ class App(ctk.CTk):
     def on_menu_click(self, item):
         # Evitar acceso a vistas que requieren DB sin conexión aún
         if item == "Gastos" and self.process is None:
-            print("⚠️ Aún no se ha conectado a la base de datos. Espera un momento...")
+            print("Aún no se ha conectado a la base de datos. Espera un momento...")
+            messagebox.showinfo("Database Connection", "Conectando a la BD. Espere un momento...")
+            return
+        
+        if item == "Reporte Semanal" and self.process is None:
+            print("Aún no se ha conectado a la base de datos. Espera un momento...")
+            messagebox.showinfo("Database Connection", "Conectando a la BD. Espere un momento...")
             return
 
         self.show_view(item)
@@ -66,7 +82,7 @@ class App(ctk.CTk):
     def show_view(self, view_name):
         if self.current_view:
             self.current_view.destroy()
-
+            
         if view_name == "Inicio":
             self.current_view = InicioFrame(self.main_container)
         elif view_name == 'Reporte Semanal':

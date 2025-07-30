@@ -20,7 +20,6 @@ class ResumenFrame(ctk.CTkFrame):
             self.datos = pd.DataFrame()
 
         # Filtro Fecha inicio y Fecha fin
-
         filtro_frame = ctk.CTkFrame(self)
         filtro_frame.pack(pady=10)
 

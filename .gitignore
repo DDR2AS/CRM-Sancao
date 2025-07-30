@@ -1,0 +1,5 @@
+.env
+consulting-mongodb.ipynb
+.venv
+ui/__pycache__
+services/__pycache__

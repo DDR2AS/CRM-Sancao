@@ -1,4 +1,5 @@
 from services.mongodb import DBMongo
+from services.drive_manager import GoogleService
 from services.process import Pipelines
 import customtkinter as ctk
 from ui.sidebar import Sidebar
@@ -12,20 +13,20 @@ from ui.ViewResumenFrame import ResumenFrame
 from ui.ViewEnviosFrame import EnviosFrame
 
 import threading
-import time
 
 # Conexión MongoDB en hilo separado
 def init_db_connection():
     db_service = DBMongo()
     db_service.connect()
-    return db_service
+    g_service = GoogleService()
+    return db_service, g_service
 
 def load_db_thread(callback):
     def run():
         print("⏳ Conectando a MongoDB...")
-        db_mongo = init_db_connection()
-        print("✅ Conexión a MongoDB lista.")
-        process = Pipelines(db_mongo)
+        db_mongo, g_service = init_db_connection()
+        print("✅ Conexión a MongoDB y drive listo.")
+        process = Pipelines(db_mongo,g_service)
         print("✅ Pipelines inicializados.")
         callback(process)
     threading.Thread(target=run, daemon=True).start()

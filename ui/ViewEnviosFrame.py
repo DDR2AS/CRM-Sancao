@@ -49,7 +49,6 @@ class EnviosFrame(ctk.CTkFrame):
         ventana = ctk.CTkToplevel(self)
         ventana.title("Nuevo Envío")
         ventana.geometry("500x570")
-        ventana.attributes('-topmost', True)
 
         # Centrar ventana
         ventana.update_idletasks()
@@ -57,6 +56,9 @@ class EnviosFrame(ctk.CTkFrame):
         x = (ventana.winfo_screenwidth() // 2) - (w // 2)
         y = (ventana.winfo_screenheight() // 2) - (h // 2)
         ventana.geometry(f"{w}x{h}+{x}+{y}")
+        ventana.transient(self)     
+        ventana.grab_set()       
+        ventana.focus_force()
 
         contenido = ctk.CTkFrame(ventana)
         contenido.pack(expand=True, fill="both", padx=40, pady=20)

@@ -15,3 +15,12 @@ class Pipelines:
 
         df_consolidado = pd.merge(sum_expenses,sum_jornales, on=['Fecha Inicio', 'Fecha Fin'], how='outer')
         return df_consolidado
+    
+    def postSentMoney(self,data: dict, file_info=None):
+        print(data)
+        self.mongo_service.uploadSendMoney(data)
+
+    def getEnvios(self):
+        table_sendMoney = self.mongo_service.getEnvios()
+        print(table_sendMoney)
+        return table_sendMoney

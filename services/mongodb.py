@@ -1,8 +1,11 @@
 from pymongo import MongoClient
+from pymongo import ReturnDocument
+
+from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
-import os
-import time
 import pandas as pd
+import time
+import os
 
 class DBMongo:
     def __init__(self):
@@ -87,3 +90,44 @@ class DBMongo:
         resumen_jornal["Fecha Fin"] = resumen_jornal["Fecha Fin"].dt.strftime("%Y-%m-%d")
         resumen_jornal
         return resumen_jornal
+    
+    def uploadSendMoney(self, data: dict):
+        PERU_TZ = timezone(timedelta(hours=-5))
+        data["createdAt"] = datetime.now(PERU_TZ).isoformat()
+
+        # Obtener el siguiente ID incremental desde la colección `counters`
+        counter = self.eiBusiness["sendMoney_counter"].find_one_and_update(
+            {"_id": "sendMoney"},
+            {"$inc": {"seq": 1}},
+            upsert=True,
+            return_document=ReturnDocument.AFTER
+        )
+
+        # Generar ID con formato S00001, S00002, ...
+        numero = counter["seq"]
+        data["scode"] = f"S{numero:05d}"
+
+        # Insertar en la colección principal
+        result = self.eiBusiness["envios_dinero"].insert_one(data)
+        
+        # También actualizamos el campo s_code con el formato
+        self.eiBusiness["sendMoney_counter"].update_one(
+            {"_id": "sendMoney"},
+            {"$set": {"s_code": f"S{numero:05d}"}}
+        )
+        return result
+    
+    def getEnvios(self):
+        sendMoney = self.eiBusiness["envios_dinero"].find({
+        },
+        {
+            "_id" : 0,
+            "Monto Total" : "$amount",
+            "COD" : "$scode",
+            "Fecha" : "$sentAt",
+            "Descripcion" : "$description"
+        }
+        ).sort({"createdAt" : -1})
+        df_sendMoney = pd.DataFrame(list(sendMoney))
+        df_sendMoney["Fecha"] = pd.to_datetime(df_sendMoney["Fecha"], errors="coerce")
+        return df_sendMoney

@@ -9,6 +9,7 @@ from ui.configuracion import ConfiguracionFrame
 from ui.main_table import MainTable
 from ui.ViewGastosFrame import GastosFrame
 from ui.ViewResumenFrame import ResumenFrame
+from ui.ViewEnviosFrame import EnviosFrame
 
 import threading
 import time
@@ -82,7 +83,7 @@ class App(ctk.CTk):
     def show_view(self, view_name):
         if self.current_view:
             self.current_view.destroy()
-            
+
         if view_name == "Inicio":
             self.current_view = InicioFrame(self.main_container)
         elif view_name == 'Reporte Semanal':
@@ -91,6 +92,8 @@ class App(ctk.CTk):
             self.current_view = GastosFrame(self.main_container, process=self.process)
         elif view_name == "Configuración":
             self.current_view = ConfiguracionFrame(self.main_container)
+        elif view_name == "Enviado":
+            self.current_view = EnviosFrame(self.main_container, process=self.process)
         else:
             self.current_view = ctk.CTkLabel(self.main_container, text=f"Vista: {view_name}")
 

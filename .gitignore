@@ -5,3 +5,5 @@ ui/__pycache__
 services/__pycache__
 keys/google.json
 keys/token.json
+keys/google-oauth.json
+keys/token-oauth.json

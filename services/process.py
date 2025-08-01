@@ -37,7 +37,7 @@ class Pipelines:
                     data["fileDriveUrl"] = resultado["url"]
 
                 except Exception as e:
-                    print(f"❌ Error al subir archivo a Drive: {e}")
+                    print(f"Error al subir archivo a Drive: {e}")
 
             # Guardar en MongoDB
             self.mongo_service.uploadSendMoney(data)

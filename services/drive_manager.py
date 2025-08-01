@@ -1,15 +1,21 @@
-import os
-import base64
-import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
+from googleapiclient.http import MediaFileUpload
+from googleapiclient.discovery import build
+
 from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaFileUpload
-from oauth2client.service_account import ServiceAccountCredentials
+import base64
+import gspread
+import time
+import os
 
 class GoogleService:
     def __init__(self):
         load_dotenv()
+        self.email_oauth = os.getenv("EMAIL_OAUTH")
         self.scopes = [
             "https://www.googleapis.com/auth/spreadsheets",
             "https://www.googleapis.com/auth/drive"
@@ -18,21 +24,46 @@ class GoogleService:
         ruta_json = os.path.join(os.getcwd(), "keys", "google.json")
         print(f"Leyendo credenciales desde: {ruta_json}")
         
-        self.creds = ServiceAccountCredentials.from_json_keyfile_name(ruta_json, self.scopes)
+        # Inicialización de credenciales
+        self.creds_service = ServiceAccountCredentials.from_json_keyfile_name(ruta_json, self.scopes)
+        self.creds_oauth = self.autenticar_oauth_user()
 
+        # Servicio de Google Sheets
         try:
-            self.client = gspread.authorize(self.creds)
+            self.client = gspread.authorize(self.creds_service)
         except Exception as e:
             print(f"ERROR-AUTH-GOOGLE (gspread): {e}")
             self.client = None
 
-        self.drive_service = build('drive', 'v3', credentials=self.creds)
+        # Servicios de Google Drive
+        self.drive_service = build('drive', 'v3', credentials=self.creds_service)
+        self.oauth_drive = build('drive', 'v3', credentials=self.creds_oauth)
+
         self.parentFolder_id_comprobantes = os.getenv("ID_COMPROBANTES_FOLDER_DRIVE")
 
         self.meses_es = [
             "ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO",
             "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"
         ]
+
+    def autenticar_oauth_user(self):
+        token_path = "keys/token_oauth.json"
+        client_secret_path = "keys/oauth-google.json"
+        creds = None
+
+        if os.path.exists(token_path):
+            creds = Credentials.from_authorized_user_file(token_path, self.scopes)
+
+        if not creds or not creds.valid:
+            if creds and creds.expired and creds.refresh_token:
+                creds.refresh(Request())
+            else:
+                flow = InstalledAppFlow.from_client_secrets_file(client_secret_path, self.scopes)
+                creds = flow.run_local_server(port=0)
+
+            with open(token_path, 'w') as token:
+                token.write(creds.to_json())
+        return creds
 
     def getPathFolderByDates(self, fecha):
         PERU_TZ = timezone(timedelta(hours=-5))
@@ -43,62 +74,68 @@ class GoogleService:
         month = self.meses_es[fecha.month - 1]
         week = f"S{((fecha.day - 1) // 7 + 1)}"
         return f"{year}/{month}/{week}"
-    
+
     def uploadToDriveByDate(self, fecha: str, file_info: dict):
-        """
-        Crea la ruta AÑO/MES/Sx en Drive basada en la fecha,
-        sube el archivo y retorna un dict con ID y URL.
-        """
         path = self.getPathFolderByDates(fecha)
-        year, month, week = path.split("/")
+        year, month, _ = path.split("/")
 
-        # Crear carpetas jerárquicamente
         carpeta_root = self.get_or_create_Folder("Comprobantes-n8n", "root")
-        carpeta_year = self.get_or_create_Folder(year, carpeta_root["id"])
-        carpeta_month = self.get_or_create_Folder(month, carpeta_year["id"])
-        carpeta_week = self.get_or_create_Folder(week, carpeta_month["id"])
+        
+        # Crear carpeta del mes con el nombre formato: JULIO-2025
+        nombre_mes = f"{month}-{year}"
+        carpeta_mes_anio = self.get_or_create_Folder(nombre_mes, carpeta_root["id"])
 
-        # Crear archivo temporal
+        # Compartir carpeta con el usuario OAuth
+        email_usuario = self.get_oauth_user_email()
+        if email_usuario:
+            self.shareFolderwithOauth(carpeta_mes_anio["id"], email_usuario)
+
+        # Guardar archivo temporal
         filepath = f"out/temp_{file_info['nombre']}"
         with open(filepath, "wb") as f:
             f.write(base64.b64decode(file_info["base64"]))
 
         try:
-            # Subir archivo
             file_id = self.uploadToDrive(
                 filepath_local=filepath,
                 filename_drive=file_info["nombre"],
-                id_parent_folder=carpeta_week["id"],
+                id_parent_folder=carpeta_mes_anio["id"],
+                id_subfolder=carpeta_mes_anio["id"],
                 mime_type=self.obtener_mime_type(file_info["tipo"])
             )
         finally:
             try:
+                time.sleep(0.5)
                 os.remove(filepath)
             except Exception as e:
-                print(f"⚠️ No se pudo eliminar el archivo temporal: {e}")
+                print(f"No se pudo eliminar el archivo temporal: {e}")
 
         return {
             "id": file_id,
             "url": f"https://drive.google.com/file/d/{file_id}/view"
         }
 
+    def uploadToDrive(self, filepath_local, filename_drive, id_parent_folder, id_subfolder=None, mime_type="image/jpeg"):
+        parent_id = id_subfolder or id_parent_folder
 
-    def uploadToDrive(self, filepath_local, filename_drive, id_parent_folder, mime_type="image/jpeg"):
-        metadata = {
+        if not parent_id:
+            raise ValueError("Debe proporcionarse al menos un folder ID.")
+
+        archivo_metadata = {
             'name': filename_drive,
-            'parents': [id_parent_folder]
+            'parents': [parent_id]
         }
 
         media = MediaFileUpload(filepath_local, mimetype=mime_type)
 
-        file = self.drive_service.files().create(
-            body=metadata,
+        archivo = self.oauth_drive.files().create(
+            body=archivo_metadata,
             media_body=media,
             fields='id'
         ).execute()
 
-        print(f"✅ Archivo subido con ID: {file['id']}")
-        return file["id"]
+        print(f"Archivo subido con ID: {archivo.get('id')}")
+        return archivo.get('id')
 
     def get_or_create_Folder(self, nombre_carpeta, id_padre):
         carpetas = self.buscar_carpeta(nombre_carpeta, id_padre)
@@ -118,7 +155,7 @@ class GoogleService:
             trashed=false
         """
         resultado = self.drive_service.files().list(
-            q=query,
+            q=query.strip(),
             spaces='drive',
             fields="files(id, name)"
         ).execute()
@@ -145,3 +182,30 @@ class GoogleService:
             "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         }
         return tipos.get(tipo_archivo.lower(), "application/octet-stream")
+
+    def shareFolderwithOauth(self, folder_id, user_mail=None):
+        user_mail=self.email_oauth
+        try:
+            permiso = {
+                'type': 'user',
+                'role': 'writer',
+                'emailAddress': user_mail
+            }
+
+            self.drive_service.permissions().create(
+                fileId=folder_id,
+                body=permiso,
+                sendNotificationEmail=False
+            ).execute()
+
+            print(f"Carpeta {folder_id} compartida con {user_mail}")
+        except Exception as e:
+            print(f"Error al compartir carpeta: {e}")
+
+    def get_oauth_user_email(self):
+        try:
+            info = self.oauth_drive.about().get(fields="user(emailAddress)").execute()
+            return info['user']['emailAddress']
+        except Exception as e:
+            print(f"No se pudo obtener correo del usuario OAuth: {e}")
+            return None

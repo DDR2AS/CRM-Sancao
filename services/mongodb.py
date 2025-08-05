@@ -123,7 +123,7 @@ class DBMongo:
             return_document=ReturnDocument.AFTER
         )
 
-        # Generar ID con formato S00001, S00002...
+        # Generar ID con formato S00001, S00002, ...
         numero = counter["seq"]
         data["scode"] = f"S{numero:05d}"
 
@@ -132,8 +132,8 @@ class DBMongo:
         
         # También actualizamos el campo s_code con el formato
         id = os.getenv('REGISTER_COUNT_ENV_ID')
-        self.eiBusiness[id].update_one(
-            {"_id": "sendMoney"},
+        self.eiBusiness["counter_collection"].update_one(
+            {"_subid": "sendMoney"},
             {"$set": {"s_code": f"S{numero:05d}"}}
         )
         return result

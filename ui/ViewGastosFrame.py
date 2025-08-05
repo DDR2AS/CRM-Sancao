@@ -56,7 +56,7 @@ class GastosFrame(ctk.CTkFrame):
                 fecha = datetime.strptime(row["Fecha"], "%Y-%m-%d")
                 meses.add(fecha.strftime("%Y-%m"))
             except Exception as e:
-                print(f"⚠️ Fecha inválida: {row['Fecha']} → {e}")
+                print(f"Fecha inválida: {row['Fecha']} → {e}")
         return sorted(list(meses), reverse=True)
 
     def cargar_datos(self, datos):
@@ -78,7 +78,7 @@ class GastosFrame(ctk.CTkFrame):
                 ))
                 total += monto
             except Exception as e:
-                print(f"⚠️ Error al cargar fila: {row} → {e}")
+                print(f"Error al cargar fila: {row} → {e}")
 
         self.total_label.configure(text=f"Gasto Total: S/ {total:,.2f}")
 

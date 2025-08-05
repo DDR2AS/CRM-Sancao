@@ -117,7 +117,8 @@ class EnviosFrame(ctk.CTkFrame):
                     "amount": monto,
                     "description": descripcion,
                     "sentAt": sentAt_with_time.isoformat(),
-                    "createdAt": created_at
+                    "createdAt": created_at,
+                    "createdBy" : "Santos Avila"
                 }
 
                 self.process.postSentMoney(data, archivo_info)

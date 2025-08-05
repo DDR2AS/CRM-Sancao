@@ -17,8 +17,10 @@ class Pipelines:
     def getSummaryByWeek(self):
         sum_expenses = self.mongo_service.getSummaryAmountGastos()
         sum_jornales = self.mongo_service.getSumaryAmountJornales()
+        sum_sendMoney = self.mongo_service.getSummaryAmountEnvios()
 
         df_consolidado = pd.merge(sum_expenses,sum_jornales, on=['Fecha Inicio', 'Fecha Fin'], how='outer')
+        df_consolidado = pd.merge(df_consolidado,sum_sendMoney, on=['Fecha Inicio', 'Fecha Fin'], how='outer')
         return df_consolidado
     
     def postSentMoney(self, data: dict, file_info=None):
@@ -51,3 +53,7 @@ class Pipelines:
         print(table_sendMoney)
         return table_sendMoney
     
+    def getJornales(self):
+        table_jornales = self.mongo_service.getJornales()
+        print(table_jornales)
+        return table_jornales

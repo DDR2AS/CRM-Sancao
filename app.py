@@ -11,6 +11,7 @@ from ui.main_table import MainTable
 from ui.ViewGastosFrame import GastosFrame
 from ui.ViewResumenFrame import ResumenFrame
 from ui.ViewEnviosFrame import EnviosFrame
+from ui.ViewJornalesFrame import JornalesFrame
 
 import threading
 
@@ -69,12 +70,7 @@ class App(ctk.CTk):
 
     def on_menu_click(self, item):
         # Evitar acceso a vistas que requieren DB sin conexión aún
-        if item == "Gastos" and self.process is None:
-            print("Aún no se ha conectado a la base de datos. Espera un momento...")
-            messagebox.showinfo("Database Connection", "Conectando a la BD. Espere un momento...")
-            return
-        
-        if item == "Reporte Semanal" and self.process is None:
+        if (item == "Gastos"  or item == "Reporte Semanal" or item == "Jornales" or item == 'Enviado') and self.process is None:
             print("Aún no se ha conectado a la base de datos. Espera un momento...")
             messagebox.showinfo("Database Connection", "Conectando a la BD. Espere un momento...")
             return
@@ -91,6 +87,8 @@ class App(ctk.CTk):
             self.current_view = ResumenFrame(self.main_container,process=self.process)
         elif view_name == "Gastos":
             self.current_view = GastosFrame(self.main_container, process=self.process)
+        elif view_name == "Jornales":
+            self.current_view = JornalesFrame(self.main_container, process=self.process)
         elif view_name == "Configuración":
             self.current_view = ConfiguracionFrame(self.main_container)
         elif view_name == "Enviado":

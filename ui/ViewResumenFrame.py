@@ -34,7 +34,7 @@ class ResumenFrame(ctk.CTkFrame):
         ctk.CTkButton(filtro_frame, text="Filtrar", command=self.aplicar_filtro_fechas).pack(side="left", padx=10)
 
         # Tabla
-        self.columns = ("Fecha Inicio", "Fecha Fin", "Gasto", "Jornal")
+        self.columns = ("Fecha Inicio", "Fecha Fin", "Gasto", "Jornal", "Envíos Dinero")
         style = ttk.Style()
         style.configure("Treeview",
                         font=("Segoe UI", 12),
@@ -68,6 +68,7 @@ class ResumenFrame(ctk.CTkFrame):
 
         total_gasto = 0
         total_jornal = 0
+        total_sendMoney = 0
 
         for _, row in datos.iterrows():
             fecha_ini = row["Fecha Inicio"]
@@ -82,10 +83,12 @@ class ResumenFrame(ctk.CTkFrame):
                 fecha_ini.strftime("%Y-%m-%d"),
                 fecha_fin.strftime("%Y-%m-%d"),
                 f"{row['Gastos']:.2f}",
-                f"{row['Jornal']:.2f}"
+                f"{row['Jornal']:.2f}",
+                f"{row['sendMoney']:.2f}"
             ))
             total_gasto += row["Gastos"]
             total_jornal += row["Jornal"]
+            total_sendMoney += row["sendMoney"]
 
     def aplicar_filtro_fechas(self):
         try:

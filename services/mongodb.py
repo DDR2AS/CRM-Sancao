@@ -88,22 +88,42 @@ class DBMongo:
         }).rename(columns={'Monto Total': 'Jornal'}).reset_index()
         resumen_jornal["Fecha Inicio"] = resumen_jornal["Fecha Inicio"].dt.strftime("%Y-%m-%d")
         resumen_jornal["Fecha Fin"] = resumen_jornal["Fecha Fin"].dt.strftime("%Y-%m-%d")
-        resumen_jornal
         return resumen_jornal
+    
+    def getSummaryAmountEnvios(self):
+        sendMoney = self.eiBusiness['envios_dinero'].find({},
+            {
+                "_id" : 0,
+                "Fecha" : "$sentAt",
+                "Monto Total" : "$amount"
+            }
+        ).sort({"Fecha" : -1})
+        df_sendMoney = pd.DataFrame(list(sendMoney))
+        df_sendMoney["Fecha"] = pd.to_datetime(df_sendMoney["Fecha"], errors="coerce")
+        df_sendMoney["Fecha"] = df_sendMoney["Fecha"].dt.tz_localize(None)
+        df_sendMoney["Fecha Inicio"] = df_sendMoney["Fecha"].dt.to_period("W").apply(lambda r: r.start_time)
+        df_sendMoney["Fecha Fin"] = df_sendMoney["Fecha"].dt.to_period("W").apply(lambda r: r.end_time)
+        resumen_sendMoney = df_sendMoney.groupby(["Fecha Inicio", "Fecha Fin"]).agg({
+            "Monto Total": "sum",
+        }).rename(columns={'Monto Total': 'sendMoney'}).reset_index()
+        resumen_sendMoney["Fecha Inicio"] = resumen_sendMoney["Fecha Inicio"].dt.strftime("%Y-%m-%d")
+        resumen_sendMoney["Fecha Fin"] = resumen_sendMoney["Fecha Fin"].dt.strftime("%Y-%m-%d")
+        return resumen_sendMoney
+
     
     def uploadSendMoney(self, data: dict):
         PERU_TZ = timezone(timedelta(hours=-5))
         data["createdAt"] = datetime.now(PERU_TZ).isoformat()
 
         # Obtener el siguiente ID incremental desde la colección `counters`
-        counter = self.eiBusiness["sendMoney_counter"].find_one_and_update(
-            {"_id": "sendMoney"},
+        counter = self.eiBusiness["counter_collection"].find_one_and_update(
+            {"_id": "68919338102d531a5d1be215"},
             {"$inc": {"seq": 1}},
             upsert=True,
             return_document=ReturnDocument.AFTER
         )
 
-        # Generar ID con formato S00001, S00002, ...
+        # Generar ID con formato S00001, S00002...
         numero = counter["seq"]
         data["scode"] = f"S{numero:05d}"
 
@@ -111,7 +131,8 @@ class DBMongo:
         result = self.eiBusiness["envios_dinero"].insert_one(data)
         
         # También actualizamos el campo s_code con el formato
-        self.eiBusiness["sendMoney_counter"].update_one(
+        id = os.getenv('REGISTER_COUNT_ENV_ID')
+        self.eiBusiness[id].update_one(
             {"_id": "sendMoney"},
             {"$set": {"s_code": f"S{numero:05d}"}}
         )
@@ -127,7 +148,24 @@ class DBMongo:
             "Fecha" : "$sentAt",
             "Descripcion" : "$description"
         }
-        ).sort({"createdAt" : -1})
+        ).sort({"Fecha" : -1})
         df_sendMoney = pd.DataFrame(list(sendMoney))
         df_sendMoney["Fecha"] = pd.to_datetime(df_sendMoney["Fecha"], errors="coerce")
         return df_sendMoney
+    
+    def getJornales(self):
+        jornals = self.eiBusiness["planilla_jornales"].find(
+            {},
+            {
+                "_id" : 0,
+                "Fecha Trabajo" : "$date_journal",
+                "Trabajador" : "$fullname",
+                "Monto Total": "$amount",
+                "Actividad" : "$activity"
+            }
+            ).sort({"Fecha": -1})
+        
+        df_journals = pd.DataFrame(list(jornals))
+        df_journals["Fecha Trabajo"] = pd.to_datetime(df_journals["Fecha Trabajo"], errors="coerce")
+        return df_journals
+

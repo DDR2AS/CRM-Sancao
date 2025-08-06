@@ -7,6 +7,8 @@ import pandas as pd
 import time
 import os
 
+PERU_TZ = timezone(timedelta(hours=-5))
+
 class DBMongo:
     def __init__(self):
         load_dotenv() 
@@ -36,15 +38,33 @@ class DBMongo:
             "Producto" : "$product",
             "Descripcion" : "$description",
             "Monto Total" : "$amount",
-            "Cantidad": "$quantity"
+            "Cantidad": "$quantity",
+            "Actividad" : "$activity"
         }
         ).sort({"createdAt" : -1})
         df_expenses = pd.DataFrame(list(expenses))
-        df_expenses["Fecha"] = pd.to_datetime(df_expenses["Fecha"], errors="coerce").dt.strftime("%Y-%m-%d")
+        df_expenses["Fecha"] = pd.to_datetime(df_expenses["Fecha"], errors="coerce")
         df_expenses["Monto Total"] = pd.to_numeric(df_expenses["Monto Total"], errors="coerce").fillna(0.0)
         df_expenses["Cantidad"] = pd.to_numeric(df_expenses["Cantidad"], errors="coerce").fillna(0.0)
-        #print(df_expenses)
         return df_expenses
+    
+    def getJornales(self):
+        jornals = self.eiBusiness["planilla_jornales"].find(
+            {},
+            {
+                "_id" : 0,
+                "Fecha Trabajo" : "$date_journal",
+                "Trabajador" : "$fullname",
+                "Monto Total": "$amount",
+                "Actividad" : "$activity",
+                "Tipo": "$type"
+            }
+            ).sort({"Fecha": -1})
+        
+        df_journals = pd.DataFrame(list(jornals))
+        df_journals["Fecha Trabajo"] = pd.to_datetime(df_journals["Fecha Trabajo"], errors="coerce")
+        df_journals["Monto Total"] = pd.to_numeric(df_journals["Monto Total"], errors="coerce").fillna(0.0)
+        return df_journals
     
     def getSummaryAmountGastos(self):
         expenses = self.eiBusiness["expenses"].find(
@@ -116,8 +136,9 @@ class DBMongo:
         data["createdAt"] = datetime.now(PERU_TZ).isoformat()
 
         # Obtener el siguiente ID incremental desde la colección `counters`
+        id = os.getenv('REGISTER_COUNT_ENV_ID')
         counter = self.eiBusiness["counter_collection"].find_one_and_update(
-            {"_id": "68919338102d531a5d1be215"},
+            {"_id": id},
             {"$inc": {"seq": 1}},
             upsert=True,
             return_document=ReturnDocument.AFTER
@@ -131,9 +152,8 @@ class DBMongo:
         result = self.eiBusiness["envios_dinero"].insert_one(data)
         
         # También actualizamos el campo s_code con el formato
-        id = os.getenv('REGISTER_COUNT_ENV_ID')
         self.eiBusiness["counter_collection"].update_one(
-            {"_subid": "sendMoney"},
+            {"_id": id},
             {"$set": {"s_code": f"S{numero:05d}"}}
         )
         return result
@@ -143,29 +163,14 @@ class DBMongo:
         },
         {
             "_id" : 0,
+            "Tipo" : "$type",
             "Monto Total" : "$amount",
-            "COD" : "$scode",
+            "COD" : "$s_code",
             "Fecha" : "$sentAt",
             "Descripcion" : "$description"
         }
         ).sort({"Fecha" : -1})
         df_sendMoney = pd.DataFrame(list(sendMoney))
         df_sendMoney["Fecha"] = pd.to_datetime(df_sendMoney["Fecha"], errors="coerce")
+        df_sendMoney["Monto Total"] = pd.to_numeric(df_sendMoney["Monto Total"], errors="coerce").fillna(0.0)
         return df_sendMoney
-    
-    def getJornales(self):
-        jornals = self.eiBusiness["planilla_jornales"].find(
-            {},
-            {
-                "_id" : 0,
-                "Fecha Trabajo" : "$date_journal",
-                "Trabajador" : "$fullname",
-                "Monto Total": "$amount",
-                "Actividad" : "$activity"
-            }
-            ).sort({"Fecha": -1})
-        
-        df_journals = pd.DataFrame(list(jornals))
-        df_journals["Fecha Trabajo"] = pd.to_datetime(df_journals["Fecha Trabajo"], errors="coerce")
-        return df_journals
-

@@ -12,6 +12,7 @@ class Pipelines:
 
     def getGastos(self):
         table_expenses = self.mongo_service.getGastos()
+        table_expenses["Fecha"] = table_expenses["Fecha"].dt.strftime("%Y-%m-%d")
         return table_expenses
     
     def getSummaryByWeek(self):
@@ -27,12 +28,11 @@ class Pipelines:
         def tarea():
             print(data)
             fecha = data["sentAt"]
-            fecha_str = datetime.strptime(fecha[:10], "%Y-%m-%d")
             if file_info:
                 try:
                     # Subir archivo al Drive y obtener ID y URL
                     resultado = self.google_service.uploadToDriveByDate(
-                        fecha=fecha_str,
+                        fecha=fecha,
                         file_info=file_info
                     )
                     data["fileDriveId"] = resultado["id"]
@@ -40,10 +40,11 @@ class Pipelines:
 
                 except Exception as e:
                     print(f"Error al subir archivo a Drive: {e}")
-
+            else:
+                data["fileDriveId"] = ""
+                data["fileDriveUrl"] = ""
             # Guardar en MongoDB
             self.mongo_service.uploadSendMoney(data)
-
             print("Envío guardado correctamente")
 
         threading.Thread(target=tarea, daemon=True).start()
@@ -57,3 +58,39 @@ class Pipelines:
         table_jornales = self.mongo_service.getJornales()
         print(table_jornales)
         return table_jornales
+    
+    def getTransactions(self):
+        table_expenses = self.mongo_service.getGastos()
+        table_sendMoney = self.mongo_service.getEnvios()
+        table_jornales = self.mongo_service.getJornales()
+
+        # Formateando Tabla gastos
+        table_expenses = table_expenses[['Fecha','Tipo','Producto','Actividad', 'Monto Total']].rename(columns={
+            'Producto' : 'Nombre',
+            'Monto Total' : 'Monto'
+        })
+
+        # Formateando Tabla Jornales
+        table_jornales = table_jornales[['Fecha Trabajo','Tipo','Trabajador','Actividad','Monto Total']].rename(columns={
+            'Fecha Trabajo' : 'Fecha',
+            'Trabajador' : 'Nombre',
+            'Monto Total' : 'Monto'
+        })
+
+        # Formateando Tabla Enviado
+        table_sendMoney = table_sendMoney[['Fecha', 'Tipo','Descripcion', 'Monto Total']].rename(columns={
+            'Descripcion' : 'Nombre',
+            'Monto Total' : 'Enviado'
+        }) 
+        print(table_expenses.info())
+        print(table_jornales.info())
+        print(table_sendMoney.info())
+        print(table_expenses)
+        print(table_jornales)
+        print(table_sendMoney)
+
+        df_consolidado = pd.concat([table_expenses,table_jornales,table_sendMoney],axis=0)
+        df_consolidado.sort_values(by='Fecha',ascending=True)
+        df_consolidado['Actividad'] = df_consolidado['Actividad'].fillna('')
+        print(df_consolidado)
+        return df_consolidado

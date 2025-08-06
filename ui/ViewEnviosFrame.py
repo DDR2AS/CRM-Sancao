@@ -24,6 +24,7 @@ class EnviosFrame(ctk.CTkFrame):
         # Tabla
         self.columns = ("COD", "Fecha envío", "Monto Total", "Descripción")
         style = ttk.Style()
+        style.theme_use("clam")
         style.configure("Treeview",
                         font=("Segoe UI", 12),
                         rowheight=32,
@@ -33,8 +34,8 @@ class EnviosFrame(ctk.CTkFrame):
                         borderwidth=0)
         style.configure("Treeview.Heading",
                         font=("Segoe UI", 14, "bold"),
-                        background="#DDEBF7",
-                        foreground="#1F4E79",
+                        background="#3EA5FF",
+                        foreground="#000000",
                         relief="flat")
 
         self.tree = ttk.Treeview(self, columns=self.columns, show="headings", height=10)
@@ -96,7 +97,7 @@ class EnviosFrame(ctk.CTkFrame):
                 sentAt = entry_fecha.get_date()
                 tz = timezone(timedelta(hours=-5))
                 sentAt_with_time = datetime.combine(sentAt, datetime.now().time()).replace(tzinfo=tz)
-                created_at = datetime.now(tz=tz).isoformat()
+                created_at = datetime.now(tz=tz).isoformat(timespec="milliseconds")
 
                 monto = float(entry_monto.get())
                 descripcion = textbox_descripcion.get("1.0", "end").strip()
@@ -114,11 +115,13 @@ class EnviosFrame(ctk.CTkFrame):
                         }
 
                 data = {
+                    "type" : "Efectivo",
                     "amount": monto,
                     "description": descripcion,
-                    "sentAt": sentAt_with_time.isoformat(),
+                    "sentAt": sentAt_with_time.strftime("%Y-%m-%d"),
+                    "createdBy" : "Santos Avila",
+                    "month" : datetime.now().strftime("%Y%m"),
                     "createdAt": created_at,
-                    "createdBy" : "Santos Avila"
                 }
 
                 self.process.postSentMoney(data, archivo_info)

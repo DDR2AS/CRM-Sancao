@@ -50,8 +50,8 @@ class EnviosFrame(ctk.CTkFrame):
 
         self.cargar_datos(self.datos_table)
                 # To - Delete
-        self.boton_mostrar_ancho = ctk.CTkButton(self, text="Mostrar ancho columnas", command=self.mostrar_ancho_columnas)
-        self.boton_mostrar_ancho.pack(pady=(0, 15))
+        #self.boton_mostrar_ancho = ctk.CTkButton(self, text="Mostrar ancho columnas", command=self.mostrar_ancho_columnas)
+        #self.boton_mostrar_ancho.pack(pady=(0, 15))
 
     def abrir_ventana_envio(self):
         ventana = ctk.CTkToplevel(self)

@@ -21,8 +21,7 @@ class EnviosFrame(ctk.CTkFrame):
             print("Error al obtener datos desde process.getEnvios():", e)
             self.datos_table = pd.DataFrame()
 
-        # Tabla
-        self.columns = ("COD", "Fecha envío", "Monto Total", "Descripción")
+        # Estilos
         style = ttk.Style()
         style.theme_use("clam")
         style.configure("Treeview",
@@ -37,14 +36,22 @@ class EnviosFrame(ctk.CTkFrame):
                         background="#3EA5FF",
                         foreground="#000000",
                         relief="flat")
+        # Tabla
+        self.columns = ("COD", "Fecha envío", "Monto Total", "Descripción", "Url")
+        self.width1 = [64,109,125,335,345]
 
         self.tree = ttk.Treeview(self, columns=self.columns, show="headings", height=10)
-        for col in self.columns:
+
+        for i, col in enumerate(self.columns):
             self.tree.heading(col, text=col)
-            self.tree.column(col, anchor=tk.CENTER, width=130)
+            self.tree.column(col, anchor=tk.CENTER, width=self.width1[i])
+
         self.tree.pack(fill="both", expand=True, padx=20, pady=10)
 
         self.cargar_datos(self.datos_table)
+                # To - Delete
+        self.boton_mostrar_ancho = ctk.CTkButton(self, text="Mostrar ancho columnas", command=self.mostrar_ancho_columnas)
+        self.boton_mostrar_ancho.pack(pady=(0, 15))
 
     def abrir_ventana_envio(self):
         ventana = ctk.CTkToplevel(self)
@@ -119,7 +126,7 @@ class EnviosFrame(ctk.CTkFrame):
                     "amount": monto,
                     "description": descripcion,
                     "sentAt": sentAt_with_time.strftime("%Y-%m-%d"),
-                    "createdBy" : "Santos Avila",
+                    "createdBy" : "Draft",
                     "month" : datetime.now().strftime("%Y%m"),
                     "createdAt": created_at,
                 }
@@ -141,6 +148,13 @@ class EnviosFrame(ctk.CTkFrame):
 
         ctk.CTkButton(contenido, text="Guardar", fg_color="green", hover_color="#006400", command=guardar).pack(pady=(10, 5))
 
+    # ========= FUNCIONES ========= #
+    def mostrar_ancho_columnas(self):
+        print("Anchura actual de columnas:")
+        for col in self.tree:
+            ancho = self.tree.column(col)["width"]
+            print(f" - {col}: {ancho} px")
+
     def cargar_datos(self, datos):
         for item in self.tree.get_children():
             self.tree.delete(item)
@@ -154,11 +168,16 @@ class EnviosFrame(ctk.CTkFrame):
                 if isinstance(fecha, str):
                     fecha = datetime.fromisoformat(fecha)
                 fecha_str = fecha.strftime("%Y-%m-%d")
+
+                # Filtrando valores nan
+                url = row['Url'] if pd.notna(row.get('Url')) else ""
+
                 self.tree.insert("", tk.END, values=(
                     row.get("COD", ""),
                     fecha_str,
                     f"{row.get('Monto Total', 0):.2f}",
-                    row.get("Descripcion", "")
+                    row.get("Descripcion", ""),
+                    url
                 ))
             except Exception as e:
                 print("Error cargando fila:", e)

@@ -3,6 +3,7 @@ from pymongo import ReturnDocument
 
 from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
+from bson import ObjectId
 import pandas as pd
 import time
 import os
@@ -132,28 +133,27 @@ class DBMongo:
 
     
     def uploadSendMoney(self, data: dict):
-        PERU_TZ = timezone(timedelta(hours=-5))
-        data["createdAt"] = datetime.now(PERU_TZ).isoformat()
+        # ID del documento a actualizar
+        _id = ObjectId(os.getenv('REGISTER_COUNT_ENV_ID'))
 
-        # Obtener el siguiente ID incremental desde la colección `counters`
-        id = os.getenv('REGISTER_COUNT_ENV_ID')
+        # Obtener el siguiente número secuencial
         counter = self.eiBusiness["counter_collection"].find_one_and_update(
-            {"_id": id},
+            {"_id": _id},
             {"$inc": {"seq": 1}},
             upsert=True,
             return_document=ReturnDocument.AFTER
         )
 
-        # Generar ID con formato S00001, S00002, ...
+        # Crear el nuevo código S0000X
         numero = counter["seq"]
-        data["scode"] = f"S{numero:05d}"
+        data['s_code'] = f"S{numero:05d}"
 
         # Insertar en la colección principal
         result = self.eiBusiness["envios_dinero"].insert_one(data)
-        
-        # También actualizamos el campo s_code con el formato
+
+        # Update s_code en counter
         self.eiBusiness["counter_collection"].update_one(
-            {"_id": id},
+            {"_id": _id},
             {"$set": {"s_code": f"S{numero:05d}"}}
         )
         return result
@@ -167,7 +167,8 @@ class DBMongo:
             "Monto Total" : "$amount",
             "COD" : "$s_code",
             "Fecha" : "$sentAt",
-            "Descripcion" : "$description"
+            "Descripcion" : "$description",
+            "Url" : "$fileDriveUrl"
         }
         ).sort({"Fecha" : -1})
         df_sendMoney = pd.DataFrame(list(sendMoney))

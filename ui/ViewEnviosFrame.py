@@ -3,6 +3,8 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 from tkcalendar import DateEntry
 from datetime import datetime, timedelta, timezone
+import webbrowser
+import shutil 
 import pandas as pd
 import base64
 import os
@@ -38,7 +40,7 @@ class EnviosFrame(ctk.CTkFrame):
                         relief="flat")
         # Tabla
         self.columns = ("COD", "Fecha envío", "Monto Total", "Descripción", "Url")
-        self.width1 = [64,109,125,335,345]
+        self.width1 = [64,109,125,315,355]
 
         self.tree = ttk.Treeview(self, columns=self.columns, show="headings", height=10)
 
@@ -47,11 +49,9 @@ class EnviosFrame(ctk.CTkFrame):
             self.tree.column(col, anchor=tk.CENTER, width=self.width1[i])
 
         self.tree.pack(fill="both", expand=True, padx=20, pady=10)
+        self.tree.bind("<Double-1>", self.open_url_chrome)
 
         self.cargar_datos(self.datos_table)
-                # To - Delete
-        #self.boton_mostrar_ancho = ctk.CTkButton(self, text="Mostrar ancho columnas", command=self.mostrar_ancho_columnas)
-        #self.boton_mostrar_ancho.pack(pady=(0, 15))
 
     def abrir_ventana_envio(self):
         ventana = ctk.CTkToplevel(self)
@@ -136,6 +136,8 @@ class EnviosFrame(ctk.CTkFrame):
                 messagebox.showinfo("Éxito", "Envío guardado correctamente", parent=ventana)
                 ventana.destroy()
                 self.recargar_tabla()
+                if archivo_info:
+                    self.master.after(10000, self.recargar_tabla)
 
             except ValueError as e:
                 ventana.attributes("-topmost", False)
@@ -188,3 +190,19 @@ class EnviosFrame(ctk.CTkFrame):
             self.cargar_datos(nuevos_datos)
         except Exception as e:
             print("Error al recargar la tabla:", e)
+    
+    def open_url_chrome(self, event):
+        # Detectar la fila y columna clicada
+        item_id = self.tree.identify_row(event.y)
+        col = self.tree.identify_column(event.x)  # "#1", "#2", ...
+
+        # Verificar que sea la columna URL (en tu caso es la quinta => "#5")
+        if item_id and col == "#5":
+            valores = self.tree.item(item_id, "values")
+            url = valores[4]  # Índice 4 porque es la quinta columna
+            if url.startswith("http"):
+                chrome_path = shutil.which("chrome") or shutil.which("google-chrome") or shutil.which("chrome.exe")
+                if chrome_path:
+                    webbrowser.get(f'"{chrome_path}" %s').open(url)
+                else:
+                    webbrowser.open(url)

@@ -1,8 +1,8 @@
+from datetime import datetime
 import customtkinter as ctk
 from tkinter import ttk
 import tkinter as tk
-from datetime import datetime
-
+import webbrowser
 import pandas as pd
 
 class GastosFrame(ctk.CTkFrame):
@@ -207,14 +207,23 @@ class GastosFrame(ctk.CTkFrame):
         self.cargar_datos(filtrado)
     
     def on_edit(self, event):
-        selected = self.tree.selection()
-        if not selected:
+        # Detectar fila y columna
+        row_id = self.tree.identify_row(event.y)
+        col_id = self.tree.identify_column(event.x)
+        if not row_id or not col_id:
             return
 
-        item_id = selected[0]
-        values = self.tree.item(item_id, "values")
+        col_index = int(col_id.replace("#", "")) - 1
+        values = self.tree.item(row_id, "values")
 
-        # Crear ventana emergente
+        # Si es columna URL → abrir en navegador
+        if self.columns[col_index] == "Url":
+            url = values[col_index]
+            if url.strip():
+                webbrowser.open(url)
+            return
+
+        # Si no es URL → abrir ventana de edición
         edit_window = tk.Toplevel(self)
         edit_window.title("Editar gasto")
 
@@ -229,16 +238,15 @@ class GastosFrame(ctk.CTkFrame):
         def save_changes():
             new_values = [e.get() for e in entries]
 
-            # Aquí llamas a tu función de actualización en la base de datos
-            # Por ejemplo, si usas MongoDB:
+            # Aquí llamas a tu función para guardar en la BD
             # self.process.update_gasto(cod=new_values[0], data=dict(zip(self.columns, new_values)))
 
-            # Actualizar en el Treeview
-            self.tree.item(item_id, values=new_values)
-
+            self.tree.item(row_id, values=new_values)
             edit_window.destroy()
-        
-        tk.Button(edit_window, text="Guardar", command=save_changes).grid(row=len(self.columns), column=0, columnspan=2, pady=10)
+
+        tk.Button(edit_window, text="Guardar", command=save_changes).grid(
+            row=len(self.columns), column=0, columnspan=2, pady=10
+        )
 
     def show_tooltip(self, event):
             """Muestra tooltip si el ratón está sobre 'Descripción' y el texto es más largo que el ancho visible."""

@@ -34,13 +34,15 @@ class DBMongo:
         },
         {
             "_id" : 0,
+            "COD" : "$e_code",
             "Fecha" : "$datepurchasedAt",
             "Tipo" : "$type",
             "Producto" : "$product",
             "Descripcion" : "$description",
             "Monto Total" : "$amount",
             "Cantidad": "$quantity",
-            "Actividad" : "$activity"
+            "Actividad" : "$activity",
+            "fileDriveUrl" : 1
         }
         ).sort({"createdAt" : -1})
         df_expenses = pd.DataFrame(list(expenses))

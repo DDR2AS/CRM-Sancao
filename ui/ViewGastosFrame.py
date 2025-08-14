@@ -16,6 +16,18 @@ class GastosFrame(ctk.CTkFrame):
             print("Error al obtener datos desde process.getGastos():", e)
             self.datos = pd.DataFrame()
 
+        # Iniciar actualización automática cada 2 minutos (120,000 ms)
+        self.after(60000, self.update_cronjob)
+
+        titulo_label = ctk.CTkLabel(
+            self,
+            text="Lista de Gastos",
+            font=("Arial", 22, "bold"),
+            anchor="w",       # alinea el texto a la izquierda
+            justify="left"    # justificación del texto
+        )
+        titulo_label.pack(fill="x", padx=20, pady=(5, 0))
+
         # Selector de mes
         self.meses = self.obtener_meses_disponibles()
         self.mes_seleccionado = ctk.StringVar(value="Todos")
@@ -34,20 +46,121 @@ class GastosFrame(ctk.CTkFrame):
         self.selector_mes.pack(side="left")
 
         # Total
-        self.total_label = ctk.CTkLabel(self, text="Gasto Total: S/ 0.00", font=("Arial", 24, "bold"))
-        self.total_label.pack(pady=10)
+        gastos_frame = tk.Frame(
+            self,
+            bg="#ff1c1c",     
+            highlightbackground="#cccccc",
+            highlightthickness=1
+        )
+        gastos_frame.pack(anchor="w", padx=20, pady=(5, 10))
+        self.gastos_label = tk.Label(
+            gastos_frame,
+            text="Gasto Total: S/ 0.00",
+            font=("Arial", 15),
+            bg="#e0e0e0",
+            padx=10,
+            pady=5
+        )
+        self.gastos_label.pack()
+
+        #self.total_label = ctk.CTkLabel(self, text="Gasto Total: S/ 0.00", font=("Arial", 24, "bold"))
+        #self.total_label.pack(pady=10)
+
+        # Estilos de la tabla 
+        style = ttk.Style()
+        style.theme_use("clam")
+        style.configure("Treeview",
+                        font=("Segoe UI", 12),
+                        rowheight=32,
+                        background="#F9F9F9",
+                        fieldbackground="#F9F9F9",
+                        foreground="#333333",
+                        borderwidth=0)
+        style.configure("Treeview.Heading",
+                        font=("Segoe UI", 14, "bold"),
+                        background="#3EA5FF",
+                        foreground="#000000",
+                        relief="flat")
+        # ===================== TABLA ===================== #
+        # Frame contenedor para tabla y scrollbar
+        tabla_frame = tk.Frame(self)
+        tabla_frame.pack(fill="both", expand=True, padx=20, pady=(5, 0))
+
+        # Scrollbar vertical
+        scrollbar_y = ttk.Scrollbar(tabla_frame, orient="vertical")
+
+        # Scrollbar horizontal
+        scrollbar_x = ttk.Scrollbar(tabla_frame, orient="horizontal")
 
         # Tabla
-        self.columns = ("Fecha", "Tipo", "Producto", "Cantidad", "Monto Total", "Descripción")
-        self.tree = ttk.Treeview(self, columns=self.columns, show="headings", height=10)
+        self.columns = ("COD","Fecha", "Tipo", "Producto", "Cantidad", "Monto Total", "Descripción", "Url")
+        self.widths = [70, 120, 64, 181, 95, 140, 300,200]
 
-        for col in self.columns:
+        self.tree = ttk.Treeview(
+            tabla_frame,
+            columns=self.columns,
+            show="headings",
+            height=8,
+            yscrollcommand=scrollbar_y.set,
+            xscrollcommand=scrollbar_x.set
+        )
+
+        # Configuración de columnas
+        for i, col in enumerate(self.columns):
             self.tree.heading(col, text=col)
-            self.tree.column(col, anchor=tk.CENTER, width=130)
+            if col == "Descripción":
+                self.tree.column(col, anchor=tk.W, width=self.widths[i])  # izquierda
+            else:
+                self.tree.column(col, anchor=tk.CENTER, width=self.widths[i])  # centrado
 
-        self.tree.pack(fill="both", expand=True, padx=20, pady=10)
+        # Ubicación de tabla y scrollbars
+        self.tree.grid(row=0, column=0, sticky="nsew")
+        scrollbar_y.grid(row=0, column=1, sticky="ns")
+        scrollbar_x.grid(row=1, column=0, sticky="ew")
 
+        # Configurar scrollbars
+        scrollbar_y.config(command=self.tree.yview)
+        scrollbar_x.config(command=self.tree.xview)
+
+        # Expandir tabla al redimensionar
+        tabla_frame.grid_rowconfigure(0, weight=1)
+        tabla_frame.grid_columnconfigure(0, weight=1)
+
+        # Para poder editar con doble click
+        self.tree.bind("<Double-1>", self.on_edit)
+
+        # Tooltip para descripción
+        self.tooltip = tk.Label(self.tree, text="", bg="yellow", wraplength=300, relief="solid", borderwidth=1)
+        self.tooltip.place_forget()
+
+        self.tree.bind("<Motion>", self.show_tooltip)
+        self.tree.bind("<Leave>", lambda e: self.tooltip.place_forget())
+        
+        # To delete
+        self.boton_mostrar_ancho = ctk.CTkButton(self, text="Mostrar ancho columnas", command=self.mostrar_ancho_columnas)
+        self.boton_mostrar_ancho.pack(pady=(0, 15))
         self.cargar_datos(self.datos)
+
+    # ========= FUNCIONES ========= #
+    def recargar_tabla(self):
+        try:
+            self.datos = self.process.getGastos()
+        except Exception as e:
+            print("Error al obtener datos desde process.getGastos():", e)
+            self.datos = pd.DataFrame()
+
+    def update_cronjob(self):
+        """Recarga los datos y vuelve a ejecutar en 2 minutos."""
+        print(f"[{datetime.now()}] Recargando datos...")
+        self.recargar_tabla()
+        self.filtrar_por_mes(self.mes_seleccionado.get())
+        self.after(120000, self.update_cronjob)  # 2 minutos
+
+    def mostrar_ancho_columnas(self):
+        print("Anchura actual de columnas:")
+        for col in self.columns:
+            ancho = self.tree.column(col)["width"]
+            print(f" - {col}: {ancho} px")
 
     def obtener_meses_disponibles(self):
         meses = set()
@@ -69,18 +182,20 @@ class GastosFrame(ctk.CTkFrame):
                 cantidad = row.get("Cantidad", 0)
                 monto = float(row.get("Monto Total", 0))
                 self.tree.insert("", tk.END, values=(
+                    row.get("COD", ""),
                     row.get("Fecha", ""),
                     row.get("Tipo", ""),
                     row.get("Producto", ""),
                     cantidad,
                     monto,
-                    row.get("Descripcion", "")
+                    row.get("Descripcion", ""),
+                    row.get("fileDriveUrl","")
                 ))
                 total += monto
             except Exception as e:
                 print(f"Error al cargar fila: {row} → {e}")
 
-        self.total_label.configure(text=f"Gasto Total: S/ {total:,.2f}")
+        self.gastos_label.configure(text=f"Gasto Total: S/ {total:,.2f}")
 
     def filtrar_por_mes(self, mes):
         if mes == "Todos":
@@ -90,4 +205,68 @@ class GastosFrame(ctk.CTkFrame):
                 self.datos["Fecha"].str.startswith(mes)
             ]
         self.cargar_datos(filtrado)
+    
+    def on_edit(self, event):
+        selected = self.tree.selection()
+        if not selected:
+            return
 
+        item_id = selected[0]
+        values = self.tree.item(item_id, "values")
+
+        # Crear ventana emergente
+        edit_window = tk.Toplevel(self)
+        edit_window.title("Editar gasto")
+
+        entries = []
+        for i, col in enumerate(self.columns):
+            tk.Label(edit_window, text=col).grid(row=i, column=0, padx=5, pady=5)
+            entry = tk.Entry(edit_window)
+            entry.grid(row=i, column=1, padx=5, pady=5)
+            entry.insert(0, values[i])
+            entries.append(entry)
+
+        def save_changes():
+            new_values = [e.get() for e in entries]
+
+            # Aquí llamas a tu función de actualización en la base de datos
+            # Por ejemplo, si usas MongoDB:
+            # self.process.update_gasto(cod=new_values[0], data=dict(zip(self.columns, new_values)))
+
+            # Actualizar en el Treeview
+            self.tree.item(item_id, values=new_values)
+
+            edit_window.destroy()
+        
+        tk.Button(edit_window, text="Guardar", command=save_changes).grid(row=len(self.columns), column=0, columnspan=2, pady=10)
+
+    def show_tooltip(self, event):
+            """Muestra tooltip si el ratón está sobre 'Descripción' y el texto es más largo que el ancho visible."""
+            region = self.tree.identify("region", event.x, event.y)
+            if region != "cell":
+                self.tooltip.place_forget()
+                return
+
+            column = self.tree.identify_column(event.x)
+            col_index = int(column.replace("#", "")) - 1
+
+            # Solo mostrar para columna Descripción
+            if self.columns[col_index] != "Descripción":
+                self.tooltip.place_forget()
+                return
+
+            row_id = self.tree.identify_row(event.y)
+            if not row_id:
+                self.tooltip.place_forget()
+                return
+
+            text = self.tree.item(row_id, "values")[col_index]
+            col_width = self.tree.column(self.columns[col_index], width=None)
+
+            # Calcular si el texto excede el ancho visible
+            if len(text) * 7 > col_width:  # 7 px aprox por caracter
+                self.tooltip.config(text=text)
+                self.tooltip.place(x=event.x_root - self.tree.winfo_rootx() + 10,
+                                y=event.y_root - self.tree.winfo_rooty() + 20)
+            else:
+                self.tooltip.place_forget()

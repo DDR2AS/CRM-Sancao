@@ -63,18 +63,19 @@ class Pipelines:
         table_expenses = self.mongo_service.getGastos()
         table_sendMoney = self.mongo_service.getEnvios()
         table_jornales = self.mongo_service.getJornales()
-
+        #table_sales = self.mongo_service.getSales()
+        
         # Formateando Tabla gastos
-        table_expenses = table_expenses[['Fecha','Tipo','Producto','Actividad', 'Monto Total']].rename(columns={
-            'Producto' : 'Nombre',
-            'Monto Total' : 'Monto'
-        })
+        # Filtrar abonos
+        df_abono = table_expenses[table_expenses['Producto'] == 'Abono'][['Fecha','Tipo','Producto','Actividad','Descripcion','Monto Total']].rename(columns={'Producto': 'Nombre', 'Monto Total': 'GastoAbono'})
+        # Filtrar los demás gastos
+        df_gastos = table_expenses[table_expenses['Producto'] != 'Abono'][['Fecha','Tipo','Producto','Actividad','Descripcion','Monto Total']].rename(columns={'Producto': 'Nombre', 'Monto Total': 'Monto'})
 
         # Formateando Tabla Jornales
         table_jornales = table_jornales[['Fecha Trabajo','Tipo','Trabajador','Actividad','Monto Total']].rename(columns={
             'Fecha Trabajo' : 'Fecha',
             'Trabajador' : 'Nombre',
-            'Monto Total' : 'Monto'
+            'Monto Total' : 'Jornal'
         })
 
         # Formateando Tabla Enviado
@@ -82,15 +83,7 @@ class Pipelines:
             'Descripcion' : 'Nombre',
             'Monto Total' : 'Enviado'
         }) 
-        print(table_expenses.info())
-        print(table_jornales.info())
-        print(table_sendMoney.info())
-        print(table_expenses)
-        print(table_jornales)
-        print(table_sendMoney)
-
-        df_consolidado = pd.concat([table_expenses,table_jornales,table_sendMoney],axis=0)
+        df_consolidado = pd.concat([df_gastos,df_abono,table_jornales,table_sendMoney],axis=0)
         df_consolidado.sort_values(by='Fecha',ascending=True)
         df_consolidado['Actividad'] = df_consolidado['Actividad'].fillna('')
-        print(df_consolidado)
         return df_consolidado

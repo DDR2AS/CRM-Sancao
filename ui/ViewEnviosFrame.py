@@ -11,7 +11,7 @@ import os
 
 class EnviosFrame(ctk.CTkFrame):
     def __init__(self, master, process):
-        super().__init__(master)
+        super().__init__(master, fg_color="white")
         self.process = process
 
         ctk.CTkLabel(self, text="Gestión de Envíos", font=("Arial", 20)).pack(pady=10)

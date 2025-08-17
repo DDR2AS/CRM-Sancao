@@ -40,7 +40,7 @@ class App(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        self.title("Aplicación de Escritorio")
+        self.title("CRM SANCAO")
         window_width = 1225
         window_height = 600
         # Calculando el centro
@@ -52,7 +52,6 @@ class App(ctk.CTk):
         self.geometry(f"{window_width}x{window_height}+{x}+{y}")
         
         self.resizable(True, True)
-
         self.process = None  # Se asignará luego
 
         # Sidebar

@@ -7,7 +7,7 @@ import pandas as pd
 
 class JornalesFrame(ctk.CTkFrame):
     def __init__(self, master, process):
-        super().__init__(master)
+        super().__init__(master,fg_color="white")
 
         self.process = process
 
@@ -22,7 +22,7 @@ class JornalesFrame(ctk.CTkFrame):
         self.total_label.pack(pady=10)
 
         # Tabla
-        self.columns = ("Fecha Trabajo", "Actividad", "Monto Total", "Trabajador")
+        self.columns = ("COD","Fecha Trabajo", "Actividad", "Monto Total", "Trabajador")
         style = ttk.Style()
         style.configure("Treeview",
                         font=("Segoe UI", 12),
@@ -58,6 +58,7 @@ class JornalesFrame(ctk.CTkFrame):
             try:
                 monto = float(row.get("Monto Total", 0))
                 self.tree.insert("", tk.END, values=(
+                    row.get("COD", ""),
                     fecha_str,
                     row.get("Actividad", ""),
                     monto,
@@ -67,4 +68,4 @@ class JornalesFrame(ctk.CTkFrame):
             except Exception as e:
                 print(f"Error al cargar fila: {row} → {e}")
 
-        self.total_label.configure(text=f"Total Jornal: S/ {total:,.2f}")
+        self.total_label.configure(text=f"Total Jornal: S/ {total:,.1f}")

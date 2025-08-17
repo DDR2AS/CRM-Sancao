@@ -46,22 +46,15 @@ class GastosFrame(ctk.CTkFrame):
         self.selector_mes.pack(side="left")
 
         # Total
-        gastos_frame = tk.Frame(
-            self,
-            bg="#ff1c1c",     
-            highlightbackground="#cccccc",
-            highlightthickness=1
-        )
-        gastos_frame.pack(anchor="w", padx=20, pady=(5, 10))
-        self.gastos_label = tk.Label(
-            gastos_frame,
-            text="Gasto Total: S/ 0.00",
-            font=("Arial", 15),
-            bg="#e0e0e0",
-            padx=10,
-            pady=5
-        )
-        self.gastos_label.pack()
+        frame_totales = ctk.CTkFrame(self, fg_color="#d9d9d9")
+        frame_totales.pack(anchor="w", padx=20, pady=20)
+
+        # Sub-frame para gasto
+        frame_gasto = ctk.CTkFrame(frame_totales, fg_color="#ff4d4f", corner_radius=10)
+        frame_gasto.pack(side="left", padx=(0, 15), ipadx=15, ipady=10)
+        
+        self.label_gasto = ctk.CTkLabel(frame_gasto, text="Gasto Total: S/ 0.0", font=("Segoe UI", 15, "bold"), text_color="white")
+        self.label_gasto.pack()
 
         #self.total_label = ctk.CTkLabel(self, text="Gasto Total: S/ 0.00", font=("Arial", 24, "bold"))
         #self.total_label.pack(pady=10)
@@ -195,7 +188,7 @@ class GastosFrame(ctk.CTkFrame):
             except Exception as e:
                 print(f"Error al cargar fila: {row} → {e}")
 
-        self.gastos_label.configure(text=f"Gasto Total: S/ {total:,.2f}")
+        self.label_gasto.configure(text=f"Gasto Total: S/ {total:,.1f}")
 
     def filtrar_por_mes(self, mes):
         if mes == "Todos":

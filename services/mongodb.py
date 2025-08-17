@@ -49,6 +49,7 @@ class DBMongo:
         df_expenses["Fecha"] = pd.to_datetime(df_expenses["Fecha"], errors="coerce")
         df_expenses["Monto Total"] = pd.to_numeric(df_expenses["Monto Total"], errors="coerce").fillna(0.0)
         df_expenses["Cantidad"] = pd.to_numeric(df_expenses["Cantidad"], errors="coerce").fillna(0.0)
+        df_expenses['fileDriveUrl'] = df_expenses['fileDriveUrl'].fillna('') 
         return df_expenses
     
     def getJornales(self):
@@ -60,6 +61,7 @@ class DBMongo:
                 "Trabajador" : "$fullname",
                 "Monto Total": "$amount",
                 "Actividad" : "$activity",
+                "COD" : "$j_code",
                 "Tipo": "$type"
             }
             ).sort({"Fecha": -1})
@@ -69,6 +71,25 @@ class DBMongo:
         df_journals["Monto Total"] = pd.to_numeric(df_journals["Monto Total"], errors="coerce").fillna(0.0)
         return df_journals
     
+    def getSales(self): 
+        sales = self.eiBusiness["sales"].find(
+            {},
+            {
+                "_id" : 0,
+                "Fecha Venta" : "$sale_at",
+                "Producto" : "$product",
+                "Peso" : "$weight",
+                "PrecioxKg" : "$price_by_kg",
+                "Monto" : "$amount",
+                "COD" : "$v_code",
+                "fileDriveUrl": 1,
+                "Tipo" : "$type" 
+            }
+        ).sort({"Fecha Venta" : -1})
+        df_sales = pd.DataFrame(list(sales))
+        df_sales["Fecha Trabajo"] = pd.to_datetime(df_sales["Fecha Trabajo"], errors="coerce")
+
+        return df_sales
     def getSummaryAmountGastos(self):
         expenses = self.eiBusiness["expenses"].find(
             {},

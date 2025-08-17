@@ -47,7 +47,7 @@ class GoogleService:
         ]
 
     def autenticar_oauth_user(self):
-        token_path = "keys/token_oauth.json"
+        token_path = "keys/token-oauth.json"
         client_secret_path = "keys/oauth-google.json"
         creds = None
 

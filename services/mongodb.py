@@ -198,3 +198,51 @@ class DBMongo:
         df_sendMoney["Fecha"] = pd.to_datetime(df_sendMoney["Fecha"], errors="coerce")
         df_sendMoney["Monto Total"] = pd.to_numeric(df_sendMoney["Monto Total"], errors="coerce").fillna(0.0)
         return df_sendMoney
+    
+    def update_Expenses(self, e_code: str, data):
+        field_map = {
+            "COD": "e_code",
+            "Fecha": "datepurchasedAt",
+            "Tipo": "type",
+            "Producto": "product",
+            "Descripción": "description",
+            "Monto Total": "amount",
+            "Cantidad": "quantity",
+            "Actividad": "activity",
+            "Url": "fileDriveUrl"
+        }
+        update_doc = {}
+        for key, value in data.items():
+            if key in field_map:
+                mongo_field = field_map[key]
+
+                # Conversión de tipos
+                if key == "Monto Total" or key == "Cantidad":
+                    try:
+                        update_doc[mongo_field] = float(value)
+                    except ValueError:
+                        update_doc[mongo_field] = 0.0
+
+                else:
+                    update_doc[mongo_field] = value
+
+        print(f"update doc : {update_doc}")
+        # Ejecutar actualización
+        result = self.eiBusiness["expenses"].update_one(
+            {"e_code": e_code},
+            {"$set": update_doc}           
+        )
+        return result
+    
+    def delete_Expense(self, e_code: str): 
+        try:
+            result = self.eiBusiness["expenses"].delete_one({"e_code": e_code})
+            if result.deleted_count > 0:
+                print(f"Gasto con COD={e_code} eliminado.")
+                return True
+            else:
+                print(f"No se encontró gasto con COD={e_code}.")
+                return False
+        except Exception as e:
+            print("Error en eliminar registro:", e)
+            return False

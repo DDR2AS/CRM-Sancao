@@ -87,3 +87,9 @@ class Pipelines:
         df_consolidado.sort_values(by='Fecha',ascending=True)
         df_consolidado['Actividad'] = df_consolidado['Actividad'].fillna('')
         return df_consolidado
+
+    def updateExpenses(self, e_code, data):
+        self.mongo_service.update_Expenses(e_code,data)
+
+    def deleteExpense(self, e_code):
+        self.mongo_service.delete_Expense(e_code)

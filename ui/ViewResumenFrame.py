@@ -43,7 +43,7 @@ class ResumenFrame(ctk.CTkFrame):
         frame_gasto.pack(side="left", padx=(0, 15), ipadx=15, ipady=10)
 
         self.label_gasto = ctk.CTkLabel(frame_gasto, text="Gasto Total: S/ 0.0", font=("Segoe UI", 15, "bold"), text_color="white")
-        self.label_gasto.pack()
+        self.label_gasto.pack(pady=12)
 
         # Sub-frame para jornales
         frame_jornales = ctk.CTkFrame(frame_totales, fg_color="#1c39dd", corner_radius=10)

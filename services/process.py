@@ -93,3 +93,8 @@ class Pipelines:
 
     def deleteExpense(self, e_code):
         self.mongo_service.delete_Expense(e_code)
+
+    def getSales(self):
+        table_sales = self.mongo_service.getSales()
+        print(table_sales)
+        return table_sales

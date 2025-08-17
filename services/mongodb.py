@@ -76,7 +76,7 @@ class DBMongo:
             {},
             {
                 "_id" : 0,
-                "Fecha Venta" : "$sale_at",
+                "Fecha Venta" : "$saleAt",
                 "Producto" : "$product",
                 "Peso" : "$weight",
                 "PrecioxKg" : "$price_by_kg",
@@ -87,9 +87,9 @@ class DBMongo:
             }
         ).sort({"Fecha Venta" : -1})
         df_sales = pd.DataFrame(list(sales))
-        df_sales["Fecha Trabajo"] = pd.to_datetime(df_sales["Fecha Trabajo"], errors="coerce")
-
+        df_sales["Fecha Venta"] = pd.to_datetime(df_sales["Fecha Venta"], errors="coerce")
         return df_sales
+    
     def getSummaryAmountGastos(self):
         expenses = self.eiBusiness["expenses"].find(
             {},

@@ -12,6 +12,7 @@ from ui.ViewGastosFrame import GastosFrame
 from ui.ViewResumenFrame import ResumenFrame
 from ui.ViewEnviosFrame import EnviosFrame
 from ui.ViewJornalesFrame import JornalesFrame
+from ui.ViewSalesFrame import SalesFrame
 
 import threading
 
@@ -92,6 +93,8 @@ class App(ctk.CTk):
             self.current_view = ConfiguracionFrame(self.main_container)
         elif view_name == "Enviado":
             self.current_view = EnviosFrame(self.main_container, process=self.process)
+        elif view_name == "Venta de Cacao":
+            self.current_view = SalesFrame(self.main_container, process=self.process)
         else:
             self.current_view = ctk.CTkLabel(self.main_container, text=f"Vista: {view_name}")
 

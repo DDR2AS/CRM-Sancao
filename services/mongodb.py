@@ -246,3 +246,95 @@ class DBMongo:
         except Exception as e:
             print("Error en eliminar registro:", e)
             return False
+        
+    def update_Sales(self, v_code: str, data):
+        field_map = {
+            "COD": "v_code",
+            "Fecha Venta": "saleAt",
+            "Tipo": "type",
+            "Producto": "product",
+            "Monto (S/)": "amount",
+            "Precio x Kg": "price_by_kg",
+            "Peso (kg)": "weight",
+            "Url": "fileDriveUrl",
+            "fileDriveId": "fileDriveId"
+        }
+
+        update_doc = {}
+        for key, value in data.items():
+            if key in field_map:
+                mongo_field = field_map[key]
+
+                # Conversión de tipos solo para campos numéricos
+                if key in ["Monto (S/)", "Peso (kg)", "Precio x Kg"]:
+                    try:
+                        update_doc[mongo_field] = float(value)
+                    except (ValueError, TypeError):
+                        update_doc[mongo_field] = 0.0
+                else:
+                    update_doc[mongo_field] = value
+
+        print(f"update doc : {update_doc}")
+
+        # Ejecutar actualización
+        result = self.eiBusiness["sales"].update_one(
+            {"v_code": v_code},
+            {"$set": update_doc}
+        )
+        return result
+
+    def delete_Sales(self, v_code: str): 
+        try:
+            result = self.eiBusiness["sales"].delete_one({"v_code": v_code})
+            if result.deleted_count > 0:
+                print(f"Venta con COD={v_code} eliminado.")
+                return True
+            else:
+                print(f"No se encontró venta con COD={v_code}.")
+                return False
+        except Exception as e:
+            print("Error en eliminar registro:", e)
+            return False
+        
+    def update_SendMoney(self, s_code: str, data):
+        field_map = {
+                "COD": "s_code",
+                "Fecha envío": "sentAt",
+                "Descripción" : "description",
+                "Tipo": "type",
+                "Monto (S/)": "amount",
+                "Url": "fileDriveUrl",
+                "fileDriveId": "fileDriveId"
+            }
+
+        update_doc = {}
+        for key, value in data.items():
+            if key in field_map:
+                mongo_field = field_map[key]
+            # Conversión de tipos solo para campos numéricos
+            if key in ["Monto (S/)"]:
+                try:
+                    update_doc[mongo_field] = float(value)
+                except (ValueError, TypeError):
+                    update_doc[mongo_field] = 0.0
+            else:
+                update_doc[mongo_field] = value
+        # Ejecutar actualización
+        result = self.eiBusiness["envios_dinero"].update_one(
+            {"s_code": s_code},
+            {"$set": update_doc}
+        )
+        return result
+    
+    def delete_SendMoney(self, s_code: str): 
+        try:
+            result = self.eiBusiness["envios_dinero"].delete_one({"s_code": s_code})
+            if result.deleted_count > 0:
+                print(f"Venta con COD={s_code} eliminado.")
+                return True
+            else:
+                print(f"No se encontró venta con COD={s_code}.")
+                return False
+        except Exception as e:
+            print("Error en eliminar registro:", e)
+            return False

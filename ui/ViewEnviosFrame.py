@@ -1,11 +1,12 @@
-import customtkinter as ctk
-import tkinter as tk
+from datetime import datetime, timedelta, timezone
 from tkinter import filedialog, messagebox, ttk
 from tkcalendar import DateEntry
-from datetime import datetime, timedelta, timezone
-import webbrowser
-import shutil 
+import customtkinter as ctk
+import tkinter as tk
 import pandas as pd
+import webbrowser
+import threading
+import shutil 
 import base64
 import os
 
@@ -13,15 +14,62 @@ class EnviosFrame(ctk.CTkFrame):
     def __init__(self, master, process):
         super().__init__(master, fg_color="white")
         self.process = process
+        # Iniciar actualización automática cada 2 minutos (120,000 ms)
+        self.after(60000, self.update_cronjob)
 
-        ctk.CTkLabel(self, text="Gestión de Envíos", font=("Arial", 20)).pack(pady=10)
-        ctk.CTkButton(self, text="Nuevo Envío", command=self.abrir_ventana_envio).pack(pady=20)
+        # ===================== TITULO Y FILTROS ===================== #
+        titulo_filtro_frame = ctk.CTkFrame(self, fg_color="transparent")
+        titulo_filtro_frame.pack(fill="x", padx=20, pady=(10, 0))
 
+        titulo_label = ctk.CTkLabel(
+            titulo_filtro_frame,
+            text="Gestión de Envíos",
+            font=("Arial", 22, "bold"),
+            anchor="w",
+            justify="left"
+        )
+        titulo_label.pack(side="left", padx=(0, 20))
+
+        filtro_frame = ctk.CTkFrame(titulo_filtro_frame, fg_color="transparent")
+        filtro_frame.pack(side="right")
+
+        ctk.CTkLabel(filtro_frame, text="Fecha Inicio:").pack(side="left", padx=(10, 5))
+        self.date_inicio = DateEntry(filtro_frame, date_pattern="yyyy-mm-dd")
+        self.date_inicio.pack(side="left", padx=5, pady=10)
+
+        ctk.CTkLabel(filtro_frame, text="Fecha Fin:").pack(side="left", padx=(10, 5))
+        self.date_fin = DateEntry(filtro_frame, date_pattern="yyyy-mm-dd")
+        self.date_fin.pack(side="left", padx=5, pady=10)
+
+        ctk.CTkButton(
+            filtro_frame,
+            text="Filtrar",
+            command=self.filterTableByDates
+        ).pack(side="left", padx=10, pady=10)
+        # ===================== TOTALES Y NUEVO ENVÍO ===================== #
+        frame_totales = ctk.CTkFrame(self, fg_color="#f0f0f0")
+        frame_totales.pack(fill="x", padx=20, pady=(10, 0))
+
+        self.label_total = ctk.CTkLabel(
+            frame_totales,
+            text="Total Envíos: S/ 0.0",
+            font=("Arial", 18, "bold"),
+            text_color="#333333"
+        )
+        self.label_total.pack(side="left", padx=15, pady=10)
+
+        ctk.CTkButton(
+            frame_totales, 
+            text="Nuevo Envío", 
+            command=self.abrir_ventana_envio
+        ).pack(side="right", padx=15, pady=10)
+        # ===================== FATOS ===================== #
         try:
             self.datos_table = self.process.getEnvios()
         except Exception as e:
             print("Error al obtener datos desde process.getEnvios():", e)
-            self.datos_table = pd.DataFrame()
+            self.columns = ("COD", "Fecha envío", "Monto (S/)", "Descripción", "Url")
+            self.datos_table = pd.DataFrame(self.columns)
 
         # Estilos
         style = ttk.Style()
@@ -39,7 +87,7 @@ class EnviosFrame(ctk.CTkFrame):
                         foreground="#000000",
                         relief="flat")
         # Tabla
-        self.columns = ("COD", "Fecha envío", "Monto Total", "Descripción", "Url")
+        self.columns = ("COD", "Fecha envío", "Monto (S/)", "Descripción", "Url")
         self.width1 = [64,109,125,315,355]
 
         self.tree = ttk.Treeview(self, columns=self.columns, show="headings", height=10)
@@ -49,10 +97,17 @@ class EnviosFrame(ctk.CTkFrame):
             self.tree.column(col, anchor=tk.CENTER, width=self.width1[i])
 
         self.tree.pack(fill="both", expand=True, padx=20, pady=10)
-        self.tree.bind("<Double-1>", self.open_url_chrome)
 
+        self.tree.bind("<Double-1>", self.on_double_click)
         self.cargar_datos(self.datos_table)
-
+    
+    # ========= FUNCIONES ========= #
+    def update_cronjob(self):
+        print(f"[{datetime.now()}] Recargando datos...")
+        self.recargar_tabla()
+        self.filterTableByDates()
+        self.after(120000, self.update_cronjob)  # 2 minutos
+    
     def abrir_ventana_envio(self):
         ventana = ctk.CTkToplevel(self)
         ventana.title("Nuevo Envío")
@@ -160,30 +215,33 @@ class EnviosFrame(ctk.CTkFrame):
     def cargar_datos(self, datos):
         for item in self.tree.get_children():
             self.tree.delete(item)
+        datos = datos.sort_values(by="Fecha", ascending=True)
 
         if datos.empty:
             return
-
+        total = 0.0
         for _, row in datos.iterrows():
             try:
                 fecha = row.get("Fecha")
                 if isinstance(fecha, str):
-                    fecha = datetime.fromisoformat(fecha)
+                    fecha = datetime.strptime(fecha, "%Y-%m-%d")
                 fecha_str = fecha.strftime("%Y-%m-%d")
 
                 # Filtrando valores nan
                 url = row['Url'] if pd.notna(row.get('Url')) else ""
-
+                amount = float(row.get("Monto Total", 0))
+                total += amount
                 self.tree.insert("", tk.END, values=(
                     row.get("COD", ""),
                     fecha_str,
-                    f"{row.get('Monto Total', 0):.2f}",
+                    f"{row.get('Monto Total', 0):.1f}",
                     row.get("Descripcion", ""),
                     url
                 ))
             except Exception as e:
                 print("Error cargando fila:", e)
-    
+        self.label_total.configure(text=f"Total Envíos: S/ {total:,.1f}")
+            
     def recargar_tabla(self):
         try:
             nuevos_datos = self.process.getEnvios()
@@ -206,3 +264,144 @@ class EnviosFrame(ctk.CTkFrame):
                     webbrowser.get(f'"{chrome_path}" %s').open(url)
                 else:
                     webbrowser.open(url)
+
+    def filterTableByDates(self):
+        try:
+            fecha_ini = datetime.strptime(self.date_inicio.get(), "%Y-%m-%d")
+            fecha_fin = datetime.strptime(self.date_fin.get(), "%Y-%m-%d")
+        except Exception as e:
+            print("Fechas inválidas:", e)
+            return
+
+        df = self.datos_table.copy()
+        df["Fecha"] = pd.to_datetime(df["Fecha"], errors="coerce")
+
+        self.datos_filtrados = df[
+            (df["Fecha"] >= fecha_ini) & (df["Fecha"] <= fecha_fin)
+        ]
+        self.cargar_datos(self.datos_filtrados)
+
+    def on_double_click(self, event):
+        item_id = self.tree.focus()
+        if not item_id:
+            return
+
+        col = self.tree.identify_column(event.x)
+        col_index = int(col.replace("#", "")) - 1
+        values = self.tree.item(item_id, "values")
+
+        if self.columns[col_index] == "Url":
+            url = values[col_index]
+            if url.strip().startswith("http"):
+                chrome_path = shutil.which("chrome") or shutil.which("google-chrome") or shutil.which("chrome.exe")
+                if chrome_path:
+                    webbrowser.get(f'"{chrome_path}" %s').open(url)
+                else:
+                    webbrowser.open(url)
+        else :
+            self.open_edit_window(item_id, values)
+    
+    def open_edit_window(self, item_id, values):
+        edit_window = ctk.CTkToplevel(self)
+        edit_window.title("Editar Venta")
+        edit_window.geometry("350x350")
+        self.archivo_subido = None
+        # --- Centrar ventana ---
+        edit_window.update_idletasks()
+        width, height = 380, 350
+        x = (edit_window.winfo_screenwidth() // 2) - (width // 2)
+        y = (edit_window.winfo_screenheight() // 2) - (height // 2)
+        edit_window.geometry(f"{width}x{height}+{x}+{y}")
+
+        entries = {}
+        for i, col in enumerate(self.columns):
+            label = ctk.CTkLabel(edit_window, text=col)
+            label.grid(row=i, column=0, padx=10, pady=5, sticky="e")
+
+            entry = ctk.CTkEntry(edit_window, width=250)
+            entry.insert(0, values[i])
+            entry.grid(row=i, column=1, padx=10, pady=5, sticky="w")
+            entries[col] = entry
+
+        # --- Botones de acción ---
+        button_frame = ctk.CTkFrame(edit_window, fg_color="transparent")
+        button_frame.grid(row=len(self.columns)+1, column=0, columnspan=2, pady=20)
+
+        btn_guardar = ctk.CTkButton(button_frame, text="Guardar", fg_color="#4CAF50")
+        btn_guardar.pack(side="left", padx=10)
+        btn_eliminar = ctk.CTkButton(button_frame, text="Eliminar", fg_color="#E53935")
+        btn_eliminar.pack(side="left", padx=10)
+
+        # --- Funciones Guardar / Eliminar ---
+        def save_changes():
+            new_values = [entries[col].get() for col in self.columns]
+            values = dict(zip(self.columns, new_values))
+            # Agregar fileDriveId y fileDriveUrl al diccionario
+            if self.archivo_subido:
+                values["fileDriveId"] = self.archivo_subido.get("fileDriveId", "")
+
+            self.process.updateSendMoney(
+                s_code=new_values[0],
+                data=values
+            )
+            self.tree.item(item_id, values=new_values)
+            self.archivo_subido = {"fileDriveId": "", "fileDriveUrl": ""}
+            self.recargar_tabla()
+            edit_window.destroy()
+
+        def delete_sendMoney():
+            if messagebox.askyesno("Confirmar", "¿Seguro que quieres eliminar esta venta?"):
+                if self.process.deleteSendMoney(values[0]):
+                    self.tree.delete(item_id)
+                self.recargar_tabla()
+                edit_window.destroy()
+
+        btn_guardar.configure(command=save_changes)
+        btn_eliminar.configure(command=delete_sendMoney)
+
+        # --- Selector de archivo ---
+        file_path_var = tk.StringVar()
+
+        # --- Label de estado ---
+        status_label = ctk.CTkLabel(edit_window, text="", fg_color="transparent", text_color="gray")
+        status_label.grid(row=len(self.columns)+2, column=0, columnspan=2, pady=5)
+
+        def seleccionar_archivo():
+            self.archivo_subido = {"fileDriveId": "", "fileDriveUrl": ""}
+            archivo = filedialog.askopenfilename(parent=edit_window,filetypes=[("Todos los archivos", "*.*")])
+            if archivo:
+                file_path_var.set(archivo)
+
+                # Deshabilitar botones mientras sube
+                btn_guardar.configure(state="disabled")
+                btn_eliminar.configure(state="disabled")
+                # Actualizar label a "subiendo..."
+                status_label.configure(text="Subiendo archivo a Drive...")
+
+                def subir_archivo():
+                    archivo_info = None
+                    with open(archivo, "rb") as f:
+                        archivo_info = {
+                            "nombre": os.path.basename(archivo),
+                            "base64": base64.b64encode(f.read()).decode("utf-8"),
+                            "tipo": os.path.splitext(archivo)[-1]
+                        }
+                    resultado = self.process.uploadFile(file_info=archivo_info)
+                    
+                    self.archivo_subido["fileDriveId"] = resultado.get("fileDriveId", "")
+                    self.archivo_subido["fileDriveUrl"] = resultado.get("fileDriveUrl", "")
+
+                    # Actualizar entry de URL en el hilo principal
+                    edit_window.after(0, lambda res=resultado: entries["Url"].delete(0, "end"))
+                    edit_window.after(0, lambda res=resultado: entries["Url"].insert(0, res.get("fileDriveUrl", "")))
+                    edit_window.after(0, lambda res=resultado: entries["Url"].icursor("end"))
+
+                    # Rehabilitar botones en el hilo principal
+                    edit_window.after(0, lambda: btn_guardar.configure(state="normal"))
+                    edit_window.after(0, lambda: btn_eliminar.configure(state="normal"))
+                    status_label.configure(text="Subida completada")
+
+                threading.Thread(target=subir_archivo, daemon=True).start()
+
+        boton_archivo = ctk.CTkButton(edit_window, text="Seleccionar archivo", command=seleccionar_archivo)
+        boton_archivo.grid(row=len(self.columns), column=1, padx=10, pady=5, sticky="w")

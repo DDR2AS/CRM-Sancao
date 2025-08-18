@@ -1,9 +1,15 @@
+from tkinter import filedialog, messagebox, ttk
 from datetime import datetime
+from tkcalendar import DateEntry
 import customtkinter as ctk
 from tkinter import ttk
 import tkinter as tk
 import webbrowser
 import pandas as pd
+import threading
+import shutil
+import base64
+import os
 
 class GastosFrame(ctk.CTkFrame):
     def __init__(self, master, process):
@@ -33,20 +39,23 @@ class GastosFrame(ctk.CTkFrame):
             justify="left"
         )
         titulo_label.pack(side="left", padx=(0, 20))  # un poco de espacio a la derecha
-        # Selector de mes
-        self.meses = self.obtener_meses_disponibles()
-        self.mes_seleccionado = ctk.StringVar(value="Todos")
 
-        self.selector_mes = ctk.CTkOptionMenu(
-            titulo_filtro_frame,
-            values=["Todos"] + self.meses,
-            variable=self.mes_seleccionado,
-            command=self.filtrar_por_mes
-        )
-        self.selector_mes.pack(side="right")
+        filtro_frame = ctk.CTkFrame(titulo_filtro_frame, fg_color="transparent")
+        filtro_frame.pack(side="right")
 
-        # Label de filtro
-        ctk.CTkLabel(titulo_filtro_frame, text="Filtrar por mes:").pack(side="right", padx=(0, 10))
+        ctk.CTkLabel(filtro_frame, text="Fecha Inicio:").pack(side="left", padx=(10, 5))
+        self.date_inicio = DateEntry(filtro_frame, date_pattern="yyyy-mm-dd")
+        self.date_inicio.pack(side="left", padx=5, pady=10)
+
+        ctk.CTkLabel(filtro_frame, text="Fecha Fin:").pack(side="left", padx=(10, 5))
+        self.date_fin = DateEntry(filtro_frame, date_pattern="yyyy-mm-dd")
+        self.date_fin.pack(side="left", padx=5, pady=10)
+
+        ctk.CTkButton(
+            filtro_frame,
+            text="Filtrar",
+            command=self.filterTableByDates
+        ).pack(side="left", padx=10, pady=10)
 
         # ===================== TOTALES GASTOS ===================== #
         frame_totales = ctk.CTkFrame(self, fg_color="white")
@@ -58,9 +67,6 @@ class GastosFrame(ctk.CTkFrame):
         
         self.label_gasto = ctk.CTkLabel(frame_gasto, text="Gasto Total: S/ 0.0", font=("Segoe UI", 15, "bold"), text_color="white")
         self.label_gasto.pack()
-
-        #self.total_label = ctk.CTkLabel(self, text="Gasto Total: S/ 0.00", font=("Arial", 24, "bold"))
-        #self.total_label.pack(pady=10)
 
         # Estilos de la tabla 
         style = ttk.Style()
@@ -123,7 +129,7 @@ class GastosFrame(ctk.CTkFrame):
         tabla_frame.grid_columnconfigure(0, weight=1)
 
         # Para poder editar con doble click
-        self.tree.bind("<Double-1>", self.on_edit)
+        self.tree.bind("<Double-1>", self.on_double_click)
 
         # Tooltip para descripción
         self.tooltip = tk.Label(self.tree, text="", bg="yellow", wraplength=300, relief="solid", borderwidth=1)
@@ -138,6 +144,22 @@ class GastosFrame(ctk.CTkFrame):
         self.cargar_datos(self.datos)
 
     # ========= FUNCIONES ========= #
+    def filterTableByDates(self):
+        try:
+            fecha_ini = datetime.strptime(self.date_inicio.get(), "%Y-%m-%d")
+            fecha_fin = datetime.strptime(self.date_fin.get(), "%Y-%m-%d")
+        except Exception as e:
+            print("Fechas inválidas:", e)
+            return
+
+        df = self.datos.copy()
+        df["Fecha"] = pd.to_datetime(df["Fecha"], errors="coerce")
+
+        self.datos_filtrados = df[
+            (df["Fecha"] >= fecha_ini) & (df["Fecha"] <= fecha_fin)
+        ]
+        self.cargar_datos(self.datos_filtrados)
+
     def recargar_tabla(self):
         try:
             self.datos = self.process.getGastos()
@@ -146,10 +168,9 @@ class GastosFrame(ctk.CTkFrame):
             self.datos = pd.DataFrame()
 
     def update_cronjob(self):
-        """Recarga los datos y vuelve a ejecutar en 2 minutos."""
         print(f"[{datetime.now()}] Recargando datos...")
         self.recargar_tabla()
-        self.filtrar_por_mes(self.mes_seleccionado.get())
+        self.filterTableByDates()
         self.after(120000, self.update_cronjob)  # 2 minutos
 
     def mostrar_ancho_columnas(self):
@@ -157,16 +178,6 @@ class GastosFrame(ctk.CTkFrame):
         for col in self.columns:
             ancho = self.tree.column(col)["width"]
             print(f" - {col}: {ancho} px")
-
-    def obtener_meses_disponibles(self):
-        meses = set()
-        for _, row in self.datos.iterrows():
-            try:
-                fecha = datetime.strptime(row["Fecha"], "%Y-%m-%d")
-                meses.add(fecha.strftime("%Y-%m"))
-            except Exception as e:
-                print(f"Fecha inválida: {row['Fecha']} → {e}")
-        return sorted(list(meses), reverse=True)
 
     def cargar_datos(self, datos):
         for item in self.tree.get_children():
@@ -192,17 +203,9 @@ class GastosFrame(ctk.CTkFrame):
                 print(f"Error al cargar fila: {row} → {e}")
 
         self.label_gasto.configure(text=f"Gasto Total: S/ {total:,.1f}")
-
-    def filtrar_por_mes(self, mes):
-        if mes == "Todos":
-            filtrado = self.datos
-        else:
-            filtrado = self.datos[
-                self.datos["Fecha"].str.startswith(mes)
-            ]
-        self.cargar_datos(filtrado)
     
-    def on_edit(self, event):               
+    def on_double_click(self, event):
+        item_id = self.tree.focus()
         # Detectar fila y columna
         row_id = self.tree.identify_row(event.y)
         col_id = self.tree.identify_column(event.x)
@@ -215,124 +218,147 @@ class GastosFrame(ctk.CTkFrame):
         # Si es columna URL → abrir en navegador
         if self.columns[col_index] == "Url":
             url = values[col_index]
-            if url.strip():
-                webbrowser.open(url)
-            return
-
-        # Si no es URL → abrir ventana de edición
-        edit_window = tk.Toplevel(self)
-        edit_window.title("Editar gasto")
-
+            if url.strip().startswith("http"):
+                chrome_path = shutil.which("chrome") or shutil.which("google-chrome") or shutil.which("chrome.exe")
+                if chrome_path:
+                    webbrowser.get(f'"{chrome_path}" %s').open(url)
+                else:
+                    webbrowser.open(url)
+        else :
+            self.open_edit_window(item_id, values)
+    
+    def open_edit_window(self, item_id, values):
+        edit_window = ctk.CTkToplevel(self)
+        edit_window.title("Editar Gasto")
+        edit_window.geometry("380x520")
+        self.archivo_subido = None
         # --- Centrar ventana ---
         edit_window.update_idletasks()
-        width, height = 480, 530
+        width, height = 380, 520
         x = (edit_window.winfo_screenwidth() // 2) - (width // 2)
         y = (edit_window.winfo_screenheight() // 2) - (height // 2)
         edit_window.geometry(f"{width}x{height}+{x}+{y}")
 
-        # --- Widgets más grandes ---
-        font_label = ("Arial", 14, "bold")
-        font_entry = ("Arial", 14)
-
-        entries = []
+        entries = {}
         for i, col in enumerate(self.columns):
-            tk.Label(edit_window, text=col, font=font_label).grid(row=i, column=0, padx=10, pady=10, sticky="e")
+            label = ctk.CTkLabel(edit_window, text=col)
+            label.grid(row=i, column=0, padx=10, pady=5, sticky="e")
 
-            if col == "Descripción":
-                # --- TextBox más grande ---
-                text_widget = tk.Text(edit_window, font=font_entry, width=40, height=4)
+            if col == 'Descripción':
+                text_widget = ctk.CTkTextbox(edit_window, width=250, height=80)
                 text_widget.grid(row=i, column=1, padx=10, pady=10, sticky="w")
-                text_widget.insert("1.0", values[i])  # insertar texto multilinea
-                entries.append(text_widget)
-
+                text_widget.insert("1.0", values[i])
+                entries[col] = text_widget
             elif col == "Producto":
-                # --- Desplegable (Combobox) ---
-                combo = ttk.Combobox(
+                combo = ctk.CTkComboBox(
                     edit_window,
-                    values=["Abono", "Aceite Quemado", "Aceite para Lubricar", "Gasolina", "Latiguillos", "Urea", "Manta para secado", "Baldes de plástico", "Sacos", "Herramientas"],
-                    font=font_entry,
-                    state="readonly",
-                    width=22
+                    values=[
+                        "Abono", "Aceite Quemado", "Aceite para Lubricar",
+                        "Gasolina", "Latiguillos", "Urea",
+                        "Manta para secado", "Baldes de plástico",
+                        "Sacos", "Herramientas"
+                    ],
+                    width=250
                 )
                 combo.set(values[i])  # valor actual
                 combo.grid(row=i, column=1, padx=10, pady=10, sticky="w")
-                entries.append(combo)
-
+                entries[col] = combo
             else:
-                # --- Entry normal ---
-                entry = tk.Entry(edit_window, font=font_entry, width=25)
-                entry.grid(row=i, column=1, padx=10, pady=10, sticky="w")
+                entry = ctk.CTkEntry(edit_window, width=250)
                 entry.insert(0, values[i])
-                entries.append(entry)
+                entry.grid(row=i, column=1, padx=10, pady=5, sticky="w")
+                entries[col] = entry
+
+        button_frame = ctk.CTkFrame(edit_window, fg_color="transparent")
+        button_frame.grid(row=len(self.columns)+1, column=0, columnspan=2, pady=20)
+
+        btn_guardar = ctk.CTkButton(button_frame, text="Guardar", fg_color="#4CAF50")
+        btn_guardar.pack(side="left", padx=10)
+        btn_eliminar = ctk.CTkButton(button_frame, text="Eliminar", fg_color="#E53935")
+        btn_eliminar.pack(side="left", padx=10)
 
         def save_changes():
             new_values = []
-            for widget in entries:
-                if isinstance(widget, tk.Text):
-                    new_values.append(widget.get("1.0", "end-1c"))  # quitar salto de línea final
-                else:
+            for col in self.columns:
+                widget = entries[col]
+                if isinstance(widget, ctk.CTkEntry):
                     new_values.append(widget.get())
-
+                elif isinstance(widget, ctk.CTkComboBox):
+                    new_values.append(widget.get())
+                elif isinstance(widget, ctk.CTkTextbox):
+                    # Para CTkTextbox necesitamos índices
+                    new_values.append(widget.get("0.0", "end").strip())
+                else:
+                    new_values.append(None)  # Por si acaso
+            values = dict(zip(self.columns, new_values))
+            if self.archivo_subido:
+                values["fileDriveId"] = self.archivo_subido.get("fileDriveId", "")
+            print(values)
             # Guardar en BD
             self.process.updateExpenses(
                 e_code=new_values[0],
-                data=dict(zip(self.columns, new_values))
+                data=values
             )
-            self.tree.item(row_id, values=new_values)
+            self.tree.item(item_id, values=new_values)
+            self.archivo_subido = {"fileDriveId": "", "fileDriveUrl": ""}
+            self.recargar_tabla()
             edit_window.destroy()
 
-        # --- Configuración de columnas para centrar ---
-        edit_window.grid_columnconfigure(0, weight=0)  # espacio izquierda
-        edit_window.grid_columnconfigure(1, weight=1)  # guardar
-        edit_window.grid_columnconfigure(2, weight=0)  # eliminar
-        edit_window.grid_columnconfigure(3, weight=1)  # espacio derecha
-
-        # --- Botón Guardar ---
-        boton_guardar = ctk.CTkButton(
-            edit_window,
-            text="Guardar",
-            command=save_changes,
-            font=("Arial", 13, "bold"),
-            corner_radius=12,
-            height=25,
-            width=120,
-            fg_color="#28a745",
-            hover_color="#218838",
-            text_color="white"
-        )
-        boton_guardar.grid(
-            row=len(self.columns),
-            column=1,
-            pady=(20, 10),
-            padx=(0, 5)
-        )
-
-        # --- Botón Eliminar ---
-        def delete_gasto():
-            confirm = tk.messagebox.askyesno("Confirmar", "¿Seguro que deseas eliminar este gasto?")
-            if confirm:
+        def delete_expense():
+            if tk.messagebox.askyesno("Confirmar", "¿Seguro que deseas eliminar este gasto?"):
                 if self.process.deleteExpense(values[0]):  # values[0] = COD
-                    self.tree.delete(row_id)  # eliminar de la tabla
+                    self.tree.delete(item_id)  # eliminar de la tabla
+                self.recargar_tabla()
                 edit_window.destroy()
 
-        boton_eliminar = ctk.CTkButton(
-            edit_window,
-            text="Eliminar",
-            command=delete_gasto,
-            font=("Arial", 13, "bold"),   # mismo tamaño que Guardar
-            corner_radius=12,
-            height=25,
-            width=100,
-            fg_color="#dc3545",           # rojo
-            hover_color="#a71d2a",
-            text_color="white"
-        )
-        boton_eliminar.grid(
-            row=len(self.columns),
-            column=2,
-            pady=(20, 10),
-            padx=(5, 15)
-        )
+        btn_guardar.configure(command=save_changes)
+        btn_eliminar.configure(command=delete_expense)
+
+        # --- Selector de archivo ---
+        file_path_var = tk.StringVar()
+        # --- Label de estado ---
+        status_label = ctk.CTkLabel(edit_window, text="", fg_color="transparent", text_color="gray")
+        status_label.grid(row=len(self.columns)+2, column=0, columnspan=2, pady=5)
+
+        def seleccionar_archivo():
+            self.archivo_subido = {"fileDriveId": "", "fileDriveUrl": ""}
+            archivo = filedialog.askopenfilename(parent=edit_window,filetypes=[("Todos los archivos", "*.*")])
+            if archivo:
+                file_path_var.set(archivo)
+
+                # Deshabilitar botones mientras sube
+                btn_guardar.configure(state="disabled")
+                btn_eliminar.configure(state="disabled")
+                # Actualizar label a "subiendo..."
+                status_label.configure(text="Subiendo archivo a Drive...")
+
+                def subir_archivo():
+                    archivo_info = None
+                    with open(archivo, "rb") as f:
+                        archivo_info = {
+                            "nombre": os.path.basename(archivo),
+                            "base64": base64.b64encode(f.read()).decode("utf-8"),
+                            "tipo": os.path.splitext(archivo)[-1]
+                        }
+                    resultado = self.process.uploadFile(file_info=archivo_info)
+                    
+                    self.archivo_subido["fileDriveId"] = resultado.get("fileDriveId", "")
+                    self.archivo_subido["fileDriveUrl"] = resultado.get("fileDriveUrl", "")
+
+                    # Actualizar entry de URL en el hilo principal
+                    edit_window.after(0, lambda res=resultado: entries["Url"].delete(0, "end"))
+                    edit_window.after(0, lambda res=resultado: entries["Url"].insert(0, res.get("fileDriveUrl", "")))
+                    edit_window.after(0, lambda res=resultado: entries["Url"].icursor("end"))
+
+                    # Rehabilitar botones en el hilo principal
+                    edit_window.after(0, lambda: btn_guardar.configure(state="normal"))
+                    edit_window.after(0, lambda: btn_eliminar.configure(state="normal"))
+                    status_label.configure(text="Subida completada")
+
+                threading.Thread(target=subir_archivo, daemon=True).start()
+
+        boton_archivo = ctk.CTkButton(edit_window, text="Seleccionar archivo", command=seleccionar_archivo)
+        boton_archivo.grid(row=len(self.columns), column=1, padx=10, pady=5, sticky="w")
 
     def show_tooltip(self, event):
             """Muestra tooltip si el ratón está sobre 'Descripción' y el texto es más largo que el ancho visible."""

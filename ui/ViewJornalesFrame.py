@@ -103,8 +103,8 @@ class JornalesFrame(ctk.CTkFrame):
         scrollbar_x.config(command=self.tree.xview)
 
         # To_delete
-        self.boton_mostrar_ancho = ctk.CTkButton(self, text="Mostrar ancho columnas", command=self.mostrar_ancho_columnas)
-        self.boton_mostrar_ancho.pack(pady=(0, 15))
+        #self.boton_mostrar_ancho = ctk.CTkButton(self, text="Mostrar ancho columnas", command=self.mostrar_ancho_columnas)
+        #self.boton_mostrar_ancho.pack(pady=(0, 15))
         self.cargar_datos(self.datos)
 
         # ========= FUNCIONES ========= #

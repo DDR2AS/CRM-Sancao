@@ -1,8 +1,8 @@
 from services.drive_manager import GoogleService 
+from datetime import datetime, timedelta, timezone
 from services.mongodb import DBMongo
 import pandas as pd
 import threading
-from datetime import datetime
 
 
 class Pipelines:
@@ -24,6 +24,23 @@ class Pipelines:
         df_consolidado = pd.merge(df_consolidado,sum_sendMoney, on=['Fecha Inicio', 'Fecha Fin'], how='outer')
         return df_consolidado
     
+    def uploadFile(self, file_info=None):
+        data = {"fileDriveId": "", "fileDriveUrl": ""}
+        if file_info:
+            try:
+                tz = timezone(timedelta(hours=-5))
+                upload_with_time = datetime.now(tz)
+                uploadDate = upload_with_time.strftime("%Y-%m-%d")
+                resultado = self.google_service.uploadToDriveByDate(
+                    fecha=uploadDate,
+                    file_info=file_info
+                )
+                data["fileDriveId"] = resultado.get("id", "")
+                data["fileDriveUrl"] = resultado.get("url", "")
+            except Exception as e:
+                print(f"Error al subir archivo a Drive: {e}")
+        return data
+
     def postSentMoney(self, data: dict, file_info=None):
         def tarea():
             print(data)
@@ -51,12 +68,12 @@ class Pipelines:
 
     def getEnvios(self):
         table_sendMoney = self.mongo_service.getEnvios()
-        print(table_sendMoney)
+        #print(table_sendMoney)
         return table_sendMoney
     
     def getJornales(self):
         table_jornales = self.mongo_service.getJornales()
-        print(table_jornales)
+        #print(table_jornales)
         return table_jornales
     
     def getTransactions(self):
@@ -90,11 +107,31 @@ class Pipelines:
 
     def updateExpenses(self, e_code, data):
         self.mongo_service.update_Expenses(e_code,data)
+        return True
 
     def deleteExpense(self, e_code):
         self.mongo_service.delete_Expense(e_code)
+        return True
 
     def getSales(self):
         table_sales = self.mongo_service.getSales()
         print(table_sales)
         return table_sales
+    
+    def updateSale(self, v_code, data):
+        print(data)
+        self.mongo_service.update_Sales(v_code,data)
+        return True
+
+    def deleteSale(self, v_code):
+        self.mongo_service.delete_Sales(v_code)
+        return True
+    
+    def updateSendMoney(self, s_code, data):
+        print(data)
+        self.mongo_service.update_SendMoney(s_code,data)
+        return True
+
+    def deleteSendMoney(self, s_code):
+        self.mongo_service.delete_SendMoney(s_code)
+        return True

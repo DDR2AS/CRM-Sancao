@@ -18,7 +18,8 @@ class SalesFrame(ctk.CTkFrame):
             self.datos = pd.DataFrame(self.process.getSales())
         except Exception as e:
             print(f"Error cargando datos de ventas: {e}")
-            self.datos = pd.DataFrame()
+            self.columns = ["COD", "Fecha Venta", "Producto", "Peso (kg)", "Precio x Kg", "Monto (S/)", "Url"]
+            self.datos = pd.DataFrame(columns=self.columns)
 
         # ===================== TITULO Y FILTROS ===================== #
         titulo_filtro_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -144,10 +145,8 @@ class SalesFrame(ctk.CTkFrame):
         col_index = int(col.replace("#", "")) - 1
         values = self.tree.item(item_id, "values")
 
-        print(self.columns[col_index])
         if self.columns[col_index] == "Url":
             url = values[col_index]
-            print(url)
             if url.strip().startswith("http"):
                 chrome_path = shutil.which("chrome") or shutil.which("google-chrome") or shutil.which("chrome.exe")
                 if chrome_path:
@@ -161,6 +160,13 @@ class SalesFrame(ctk.CTkFrame):
         edit_window = ctk.CTkToplevel(self)
         edit_window.title("Editar Venta")
         edit_window.geometry("400x330")
+        
+        # --- Centrar ventana ---
+        edit_window.update_idletasks()
+        width, height = 400, 330
+        x = (edit_window.winfo_screenwidth() // 2) - (width // 2)
+        y = (edit_window.winfo_screenheight() // 2) - (height // 2)
+        edit_window.geometry(f"{width}x{height}+{x}+{y}")
 
         entries = {}
         for i, col in enumerate(self.columns):
@@ -176,20 +182,27 @@ class SalesFrame(ctk.CTkFrame):
         button_frame = ctk.CTkFrame(edit_window, fg_color="transparent")
         button_frame.grid(row=len(self.columns), column=0, columnspan=2, pady=20)
 
-        def guardar():
+        def save_changes():
             new_values = [entries[col].get() for col in self.columns]
+            print(new_values)
+            # Guardar en BD
+            self.process.updateSale(
+                v_code=new_values[0],
+                data=dict(zip(self.columns, new_values))
+            )
             self.tree.item(item_id, values=new_values)
             self.recalcular_total()
             edit_window.destroy()
 
-        def eliminar():
+        def delete_sale():
             if messagebox.askyesno("Confirmar", "¿Seguro que quieres eliminar esta venta?"):
-                self.tree.delete(item_id)
+                if self.process.deleteSale(values[0]):
+                    self.tree.delete(item_id)
                 self.recalcular_total()
                 edit_window.destroy()
 
-        ctk.CTkButton(button_frame, text="Guardar", command=guardar, fg_color="#4CAF50").pack(side="left", padx=10)
-        ctk.CTkButton(button_frame, text="Eliminar", command=eliminar, fg_color="#E53935").pack(side="left", padx=10)
+        ctk.CTkButton(button_frame, text="Guardar", command=save_changes, fg_color="#4CAF50").pack(side="left", padx=10)
+        ctk.CTkButton(button_frame, text="Eliminar", command=delete_sale, fg_color="#E53935").pack(side="left", padx=10)
 
     def recalcular_total(self):
         total = 0.0
@@ -216,5 +229,4 @@ class SalesFrame(ctk.CTkFrame):
         self.datos_filtrados = df[
             (df["Fecha Venta"] >= fecha_ini) & (df["Fecha Venta"] <= fecha_fin)
         ]
-
         self.cargar_datos(self.datos_filtrados)

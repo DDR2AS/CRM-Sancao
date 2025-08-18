@@ -70,7 +70,7 @@ class App(ctk.CTk):
 
     def on_menu_click(self, item):
         # Evitar acceso a vistas que requieren DB sin conexión aún
-        if (item == "Gastos"  or item == "Reporte Semanal" or item == "Jornales" or item == 'Enviado') and self.process is None:
+        if (item == "Gastos"  or item == "Reporte Semanal" or item == "Jornales" or item == 'Enviado' or item == 'Venta de Cacao') and self.process is None:
             print("Aún no se ha conectado a la base de datos. Espera un momento...")
             messagebox.showinfo("Database Connection", "Conectando a la BD. Espere un momento...")
             return

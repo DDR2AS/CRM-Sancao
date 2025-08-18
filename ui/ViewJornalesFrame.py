@@ -17,7 +17,8 @@ class JornalesFrame(ctk.CTkFrame):
             self.datos = self.process.getJornales()
         except Exception as e:
             print("Error al obtener datos desde process.getJornales(): ", e)
-            self.datos = pd.DataFrame()
+            self.columns = ("COD","Fecha Trabajo", "Actividad", "Monto Total", "Trabajador")
+            self.datos = pd.DataFrame(columns=self.columns)
 
         # Frame contenedor de título y filtros en una sola fila
         titulo_filtro_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -118,6 +119,10 @@ class JornalesFrame(ctk.CTkFrame):
             self.cargar_datos(self.datos)
         except Exception as e:
             print("Error al recargar la tabla:", e)
+            self.columns = ("COD","Fecha Trabajo", "Actividad", "Monto Total", "Trabajador")
+            self.datos = pd.DataFrame(columns=self.columns)
+            self.cargar_datos(self.datos)
+
     def on_double_click(self,event):
         item_id = self.tree.focus()
         if not item_id:

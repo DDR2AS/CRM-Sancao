@@ -214,11 +214,11 @@ class SalesFrame(ctk.CTkFrame):
         for item in self.tree.get_children():
             values = self.tree.item(item, "values")
             try:
-                amount = float(values[4]) 
+                amount = float(values[5]) 
                 total += amount
             except:
                 pass
-        self.label_total.configure(text=f"Total Ventas: S/ {total:,.2f}")
+        self.label_total.configure(text=f"Total Ventas: S/ {total:,.1f}")
 
     def filterTableByDates(self):
         try:

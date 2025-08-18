@@ -4,7 +4,9 @@ import tkinter as tk
 from tkinter import filedialog
 from datetime import datetime
 from tkcalendar import DateEntry
-
+from tkinter import messagebox
+import os
+import sys
 
 import pandas as pd
 
@@ -134,8 +136,18 @@ class ResumenFrame(ctk.CTkFrame):
         #self.boton_mostrar_ancho = ctk.CTkButton(self, text="Mostrar ancho columnas", command=self.mostrar_ancho_columnas)
         #self.boton_mostrar_ancho.pack(pady=(0, 15))
         self.cargar_detalle_datos(self.detalle_datos)
+        self.aplicar_filtro_fechas()
 
     # ========= FUNCIONES ========= #
+    def recargar_tabla(self):
+        try:
+            self.detalle_datos = self.process.getTransactions()
+        except Exception as e:
+            print("Error al obtener datos desde process.getGastos():", e)
+            self.tabla_detalle_columns  = ("Item", "Fecha", "Tipo", "Nombre", "Actividad", "Descripción", "Abono (S/.)" ,"Gasto (S/.)", "Jornal (S/.)" ,"Enviado (S/.)")
+            self.detalle_datos = pd.DataFrame(columns=self.tabla_detalle_columns)
+            self.cargar_detalle_datos(self.detalle_datos)
+
     def mostrar_ancho_columnas(self):
         print("Anchura actual de columnas:")
         for col in self.tabla_detalle_columns:
@@ -198,7 +210,6 @@ class ResumenFrame(ctk.CTkFrame):
         self.label_enviado.configure(text=f"Total Enviado: S/{total_enviado:,.1f}")
         self.label_abono.configure(text=f"Gasto Abono: S/{total_abono:,.1f}")
 
-
     def aplicar_filtro_fechas(self):
         try:
             fecha_ini = datetime.strptime(self.date_inicio.get(), "%Y-%m-%d")
@@ -217,14 +228,28 @@ class ResumenFrame(ctk.CTkFrame):
         ]
 
         self.cargar_detalle_datos(self.datos_filtrados)
-
+    
     def exportar_a_excel(self):
-        file_path = filedialog.asksaveasfilename(defaultextension=".xlsx", filetypes=[("Excel Files", "*.xlsx")])
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".xlsx",
+            filetypes=[("Excel Files", "*.xlsx")],
+            title="Guardar archivo como..."
+        )
+        
         if file_path:
             try:
+                # Asegurarse de que sea una ruta absoluta
+                if not os.path.isabs(file_path):
+                    file_path = os.path.abspath(file_path)
+                
+                # Guardar el Excel
                 self.datos_filtrados.to_excel(file_path, index=False)
+                messagebox.showinfo("Éxito", f"Exportado exitosamente a:\n{file_path}")
                 print(f"Exportado exitosamente a {file_path}")
+            except PermissionError:
+                messagebox.showerror("Error", "No se pudo guardar el archivo. Verifica permisos o cierra el archivo si está abierto.")
             except Exception as e:
+                messagebox.showerror("Error", f"Error al exportar:\n{e}")
                 print(f"Error al exportar: {e}")
 
     def cargar_datos(self, datos):

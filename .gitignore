@@ -8,3 +8,7 @@ keys/google.json
 keys/token.json
 keys/oauth-google.json
 keys/token-oauth.json
+build/
+dist/
+app.spec
+icon.ico

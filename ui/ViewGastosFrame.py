@@ -20,7 +20,8 @@ class GastosFrame(ctk.CTkFrame):
             self.datos = self.process.getGastos()
         except Exception as e:
             print("Error al obtener datos desde process.getGastos():", e)
-            self.datos = pd.DataFrame()
+            self.columns = ("COD","Fecha", "Tipo", "Producto", "Cantidad", "Monto Total", "Descripción", "Url")
+            self.datos = pd.DataFrame(columns=self.columns)
 
         # Iniciar actualización automática cada 2 minutos (120,000 ms)
         self.after(60000, self.update_cronjob)
@@ -168,9 +169,12 @@ class GastosFrame(ctk.CTkFrame):
     def recargar_tabla(self):
         try:
             self.datos = self.process.getGastos()
+            self.cargar_datos(self.datos)
         except Exception as e:
             print("Error al obtener datos desde process.getGastos():", e)
-            self.datos = pd.DataFrame()
+            self.columns = ("COD","Fecha", "Tipo", "Producto", "Cantidad", "Monto Total", "Descripción", "Url")
+            self.datos = pd.DataFrame(columns=self.columns)
+            self.cargar_datos(self.datos)
 
     def update_cronjob(self):
         print(f"[{datetime.now()}] Recargando datos...")

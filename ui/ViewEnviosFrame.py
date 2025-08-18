@@ -254,6 +254,9 @@ class EnviosFrame(ctk.CTkFrame):
             self.cargar_datos(nuevos_datos)
         except Exception as e:
             print("Error al recargar la tabla:", e)
+            self.columns = ("COD", "Fecha envío", "Monto (S/)", "Descripción", "Url")
+            self.datos_table = pd.DataFrame(self.columns)
+            self.cargar_datos(nuevos_datos)
     
     def open_url_chrome(self, event):
         # Detectar la fila y columna clicada

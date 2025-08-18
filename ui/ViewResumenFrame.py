@@ -25,9 +25,15 @@ class ResumenFrame(ctk.CTkFrame):
         filtro_frame = ctk.CTkFrame(self)
         filtro_frame.pack(pady=5, anchor="center")
 
+        # Obtener primer día del mes actual
+        hoy = datetime.today()
+        first_day = hoy.replace(day=1)
+
         ctk.CTkLabel(filtro_frame, text="Fecha Inicio:").pack(side="left", padx=(10, 5))
         self.date_inicio = DateEntry(filtro_frame, date_pattern="yyyy-mm-dd")
+        self.date_inicio.set_date(first_day)  # Asignamos el primer día del mes
         self.date_inicio.pack(side="left", padx=5, pady=10)
+
 
         ctk.CTkLabel(filtro_frame, text="Fecha Fin:").pack(side="left", padx=(10, 5))
         self.date_fin = DateEntry(filtro_frame, date_pattern="yyyy-mm-dd")

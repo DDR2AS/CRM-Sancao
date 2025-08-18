@@ -135,3 +135,12 @@ class Pipelines:
     def deleteSendMoney(self, s_code):
         self.mongo_service.delete_SendMoney(s_code)
         return True
+    
+    def updateJornal(self, j_code, data):
+        print(data)
+        self.mongo_service.update_Jornal(j_code,data)
+        return True
+
+    def deleteJornal(self, j_code):
+        self.mongo_service.delete_Jornal(j_code)
+        return True

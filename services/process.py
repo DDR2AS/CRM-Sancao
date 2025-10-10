@@ -223,7 +223,7 @@ class Pipelines:
         fill_1 = PatternFill(start_color="D6D64B", end_color="D6D64B", fill_type="solid")
         fill_2 = PatternFill(start_color="c05d49", end_color="c05d49", fill_type="solid")
         fill_3 = PatternFill(start_color="1F66E0", end_color="1F66E0", fill_type="solid")
-        fill_4 = PatternFill(start_color="434241", end_color="434241", fill_type="solid")
+        fill_4 = PatternFill(start_color="3cad27", end_color="3cad27", fill_type="solid")
         fill_gray = PatternFill(start_color="DDDDDD", end_color="DDDDDD", fill_type="solid")
 
         with pd.ExcelWriter(path, engine='openpyxl') as writer:

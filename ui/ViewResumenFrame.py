@@ -142,8 +142,8 @@ class ResumenFrame(ctk.CTkFrame):
         self.tree.pack(fill="both", expand=True, padx=20, pady=10)
         #self.cargar_datos(self.datos)
         """
-        self.boton_mostrar_ancho = ctk.CTkButton(self, text="Mostrar ancho columnas", command=self.mostrar_ancho_columnas)
-        self.boton_mostrar_ancho.pack(pady=(0, 15))
+        #self.boton_mostrar_ancho = ctk.CTkButton(self, text="Mostrar ancho columnas", command=self.mostrar_ancho_columnas)
+        #self.boton_mostrar_ancho.pack(pady=(0, 15))
         self.cargar_detalle_datos(self.detalle_datos)
         self.aplicar_filtro_fechas()
 

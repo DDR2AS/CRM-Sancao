@@ -5,13 +5,14 @@ from tkinter import filedialog
 from datetime import datetime
 from tkcalendar import DateEntry
 from tkinter import messagebox
+import pandas as pd
 import os
 import sys
 
-import pandas as pd
+from services.process import Pipelines 
 
 class ResumenFrame(ctk.CTkFrame):
-    def __init__(self, master, process):
+    def __init__(self, master, process : Pipelines):
         super().__init__(master, fg_color="white")
         self.process = process
 
@@ -69,10 +70,18 @@ class ResumenFrame(ctk.CTkFrame):
 
         # Sub-frame para enviado
         frame_enviado = ctk.CTkFrame(frame_totales, fg_color="#1cddb3", corner_radius=10)
-        frame_enviado.pack(side="left", ipadx=15, ipady=10)
+        frame_enviado.pack(side="left", padx=(0, 15), ipadx=15, ipady=10)
 
         self.label_enviado = ctk.CTkLabel(frame_enviado, text="Total Enviado: S/ 0.0", font=("Segoe UI", 14, "bold"), text_color="#333")
         self.label_enviado.pack()
+
+        # Sub-frame para venta de cacao
+        frame_venta = ctk.CTkFrame(frame_totales, fg_color="#1CB460", corner_radius=10)
+        frame_venta.pack(side="left", ipadx=15, ipady=10)
+
+        self.label_venta = ctk.CTkLabel(frame_venta, text="Total Vendido: S/ 0.0", font=("Segoe UI", 14, "bold"), text_color="#333")
+        self.label_venta.pack()
+
 
         # Estilos de la tabla 
         style = ttk.Style()
@@ -102,8 +111,8 @@ class ResumenFrame(ctk.CTkFrame):
         scrollbar_x.pack(side="bottom", fill="x")
         
         # Tabla Detalle
-        self.tabla_detalle_columns  = ("Item", "Fecha", "Tipo", "Nombre", "Actividad", "Descripción", "Abono (S/.)" ,"Gasto (S/.)", "Jornal (S/.)" ,"Enviado (S/.)")
-        self.width1 = [64,108,125,215,240,169,146,142,150, 150]
+        self.tabla_detalle_columns  = ("Item", "Fecha", "Tipo", "Nombre", "Actividad", "Descripción", "Abono (S/.)" ,"Gasto (S/.)", "Jornal (S/.)" ,"Enviado (S/.)", "Venta Cacao (S/.)")
+        self.width1 = [54, 95, 120, 215, 150, 169, 140, 132, 132, 132, 180]
         self.tabla_detalle = ttk.Treeview(tabla_frame,
                                           columns=self.tabla_detalle_columns,
                                           show="headings",
@@ -144,7 +153,7 @@ class ResumenFrame(ctk.CTkFrame):
             self.detalle_datos = self.process.getTransactions()
         except Exception as e:
             print("Error al obtener datos desde process.getGastos():", e)
-            self.tabla_detalle_columns  = ("Item", "Fecha", "Tipo", "Nombre", "Actividad", "Descripción", "Abono (S/.)" ,"Gasto (S/.)", "Jornal (S/.)" ,"Enviado (S/.)")
+            self.tabla_detalle_columns  = ("Item", "Fecha", "Tipo", "Nombre", "Actividad", "Descripción", "Abono (S/.)" ,"Gasto (S/.)", "Jornal (S/.)" ,"Enviado (S/.)", "Venta Cacao (S/.)")
             self.detalle_datos = pd.DataFrame(columns=self.tabla_detalle_columns)
             self.cargar_detalle_datos(self.detalle_datos)
 
@@ -167,6 +176,7 @@ class ResumenFrame(ctk.CTkFrame):
         total_jornal = 0.0
         total_enviado = 0.0
         total_abono = 0.0
+        total_venta = 0.0
 
         for idx, row in enumerate(datos.itertuples(index=False), start=1):
             fecha = row.Fecha
@@ -183,6 +193,7 @@ class ResumenFrame(ctk.CTkFrame):
             monto = row.Monto if pd.notna(getattr(row, "Monto", "")) else 0.0
             jornal = row.Jornal if pd.notna(getattr(row, "Jornal", "")) else 0.0
             enviado = row.Enviado if pd.notna(getattr(row, "Enviado", "")) else 0.0
+            venta = row.Venta if pd.notna(getattr(row, "Venta", "")) else 0.0
 
             # Insertar en tabla
             self.tabla_detalle.insert("", "end", values=(
@@ -195,7 +206,8 @@ class ResumenFrame(ctk.CTkFrame):
                 f"{gastoAbono:.2f}" if gastoAbono else "",
                 f"{monto:.2f}" if monto else "",
                 f"{jornal:.2f}" if jornal else "",
-                f"{enviado:.2f}" if enviado else ""
+                f"{enviado:.2f}" if enviado else "",
+                f"{venta:.2f}" if venta else ""
             ))
 
             # Acumular totales
@@ -203,12 +215,14 @@ class ResumenFrame(ctk.CTkFrame):
             total_jornal += float(jornal)
             total_enviado += float(enviado)
             total_abono += float(gastoAbono)
+            total_venta += float(venta)
 
         # Actualizar labels de totales
         self.label_gasto.configure(text=f"Gasto Total: S/{total_gastos:,.1f}")
         self.label_jornales.configure(text=f"Total Jornal: S/{total_jornal:,.1f}")
         self.label_enviado.configure(text=f"Total Enviado: S/{total_enviado:,.1f}")
         self.label_abono.configure(text=f"Gasto Abono: S/{total_abono:,.1f}")
+        self.label_venta.configure(text=f"Total Vendido: S/{total_venta:,.1f}")
 
     def aplicar_filtro_fechas(self):
         try:
@@ -243,7 +257,9 @@ class ResumenFrame(ctk.CTkFrame):
                     file_path = os.path.abspath(file_path)
                 
                 # Guardar el Excel
-                self.datos_filtrados.to_excel(file_path, index=False)
+                export_data = self.process.addTotal(self.datos_filtrados)
+                self.process.exportSummaryExcelFormatted(export_data, file_path, self.tabla_detalle_columns)
+                #export_data.to_excel(file_path, index=False)
                 messagebox.showinfo("Éxito", f"Exportado exitosamente a:\n{file_path}")
                 print(f"Exportado exitosamente a {file_path}")
             except PermissionError:

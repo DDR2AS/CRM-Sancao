@@ -111,8 +111,8 @@ class ResumenFrame(ctk.CTkFrame):
         scrollbar_x.pack(side="bottom", fill="x")
         
         # Tabla Detalle
-        self.tabla_detalle_columns  = ("Item", "Fecha", "Tipo", "Nombre", "Actividad", "Descripción", "Abono (S/.)" ,"Gasto (S/.)", "Jornal (S/.)" ,"Enviado (S/.)", "Venta Cacao (S/.)")
-        self.width1 = [54, 95, 120, 215, 150, 169, 140, 132, 132, 132, 180]
+        self.tabla_detalle_columns  = ("Item", "Fecha", "Responsable", "Tipo", "Nombre", "Actividad", "Descripción", "Abono (S/.)" ,"Gasto (S/.)", "Jornal (S/.)" ,"Enviado (S/.)", "Venta Cacao (S/.)")
+        self.width1 = [54, 95, 112, 88, 196, 130, 169, 140, 130, 130, 130, 175]
         self.tabla_detalle = ttk.Treeview(tabla_frame,
                                           columns=self.tabla_detalle_columns,
                                           show="headings",
@@ -142,8 +142,8 @@ class ResumenFrame(ctk.CTkFrame):
         self.tree.pack(fill="both", expand=True, padx=20, pady=10)
         #self.cargar_datos(self.datos)
         """
-        #self.boton_mostrar_ancho = ctk.CTkButton(self, text="Mostrar ancho columnas", command=self.mostrar_ancho_columnas)
-        #self.boton_mostrar_ancho.pack(pady=(0, 15))
+        self.boton_mostrar_ancho = ctk.CTkButton(self, text="Mostrar ancho columnas", command=self.mostrar_ancho_columnas)
+        self.boton_mostrar_ancho.pack(pady=(0, 15))
         self.cargar_detalle_datos(self.detalle_datos)
         self.aplicar_filtro_fechas()
 
@@ -185,6 +185,7 @@ class ResumenFrame(ctk.CTkFrame):
             fecha_str = fecha.strftime("%Y-%m-%d")
 
             # Limpiando valores NaN
+            responsable = row.Responsable if pd.notna(getattr(row, "Responsable", "")) else ""
             tipo = row.Tipo if pd.notna(getattr(row, "Tipo", "")) else ""
             nombre = row.Nombre if pd.notna(getattr(row, "Nombre", "")) else ""
             actividad = row.Actividad if pd.notna(getattr(row, "Actividad", "")) else ""
@@ -199,6 +200,7 @@ class ResumenFrame(ctk.CTkFrame):
             self.tabla_detalle.insert("", "end", values=(
                 idx,
                 fecha_str,
+                responsable,
                 tipo,
                 nombre,
                 actividad,

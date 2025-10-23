@@ -91,7 +91,7 @@ class Pipelines:
         df_gastos = table_expenses[table_expenses['Producto'] != 'Abono'][['Fecha','Tipo','Producto','Actividad','Descripcion','Monto Total','Responsable']].rename(columns={'Producto': 'Nombre', 'Monto Total': 'Monto'})
 
         # Formateando Tabla Jornales
-        table_jornales = table_jornales[['Fecha Trabajo','Tipo','Trabajador','Actividad','Monto Total', 'Responsable']].rename(columns={
+        table_jornales = table_jornales[['Fecha Trabajo','Tipo','Trabajador','Actividad', 'Descripcion','Monto Total', 'Responsable']].rename(columns={
             'Fecha Trabajo' : 'Fecha',
             'Trabajador' : 'Nombre',
             'Monto Total' : 'Jornal'
@@ -113,7 +113,7 @@ class Pipelines:
         df_consolidado.sort_values(by='Fecha',ascending=True)
         df_consolidado['Actividad'] = df_consolidado['Actividad'].fillna('')
         df_consolidado = df_consolidado[['Fecha', 'Responsable','Tipo', 'Nombre', 'Actividad', 'Descripcion', 'Monto', 'GastoAbono', 'Jornal', 'Enviado', 'Venta']]
-        df_consolidado.to_csv('out/consolidado.csv', index=False)
+        #df_consolidado.to_csv('out/consolidado.csv', index=False)
         print(df_consolidado)
         return df_consolidado
 

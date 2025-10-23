@@ -60,6 +60,7 @@ class DBMongo:
                 "_id" : 0,
                 "Fecha Trabajo" : "$date_journal",
                 "Trabajador" : "$fullname",
+                "Descripcion" : "$description",
                 "Monto Total": "$amount",
                 "Actividad" : "$activity",
                 "COD" : "$j_code",

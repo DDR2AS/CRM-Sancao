@@ -1,3 +1,5 @@
+from openpyxl.styles import PatternFill, Font, Alignment, Border, Side, NamedStyle
+from openpyxl.utils import get_column_letter
 from services.drive_manager import GoogleService 
 from datetime import datetime, timedelta, timezone
 from services.mongodb import DBMongo
@@ -80,29 +82,39 @@ class Pipelines:
         table_expenses = self.mongo_service.getGastos()
         table_sendMoney = self.mongo_service.getEnvios()
         table_jornales = self.mongo_service.getJornales()
-        #table_sales = self.mongo_service.getSales()
+        table_sales = self.mongo_service.getSales()
         
         # Formateando Tabla gastos
         # Filtrar abonos
-        df_abono = table_expenses[table_expenses['Producto'] == 'Abono'][['Fecha','Tipo','Producto','Actividad','Descripcion','Monto Total']].rename(columns={'Producto': 'Nombre', 'Monto Total': 'GastoAbono'})
+        df_abono = table_expenses[table_expenses['Producto'] == 'Abono'][['Fecha','Tipo','Producto','Actividad','Descripcion','Monto Total', 'Responsable']].rename(columns={'Producto': 'Nombre', 'Monto Total': 'GastoAbono'})
         # Filtrar los demás gastos
-        df_gastos = table_expenses[table_expenses['Producto'] != 'Abono'][['Fecha','Tipo','Producto','Actividad','Descripcion','Monto Total']].rename(columns={'Producto': 'Nombre', 'Monto Total': 'Monto'})
+        df_gastos = table_expenses[table_expenses['Producto'] != 'Abono'][['Fecha','Tipo','Producto','Actividad','Descripcion','Monto Total','Responsable']].rename(columns={'Producto': 'Nombre', 'Monto Total': 'Monto'})
 
         # Formateando Tabla Jornales
-        table_jornales = table_jornales[['Fecha Trabajo','Tipo','Trabajador','Actividad','Monto Total']].rename(columns={
+        table_jornales = table_jornales[['Fecha Trabajo','Tipo','Trabajador','Actividad','Monto Total', 'Responsable']].rename(columns={
             'Fecha Trabajo' : 'Fecha',
             'Trabajador' : 'Nombre',
             'Monto Total' : 'Jornal'
         })
 
         # Formateando Tabla Enviado
-        table_sendMoney = table_sendMoney[['Fecha', 'Tipo','Descripcion', 'Monto Total']].rename(columns={
+        table_sendMoney = table_sendMoney[['Fecha', 'Tipo','Descripcion', 'Monto Total', 'Responsable']].rename(columns={
             'Descripcion' : 'Nombre',
             'Monto Total' : 'Enviado'
-        }) 
-        df_consolidado = pd.concat([df_gastos,df_abono,table_jornales,table_sendMoney],axis=0)
+        })
+        # Formateando Tabla Gastos
+        table_sales = table_sales[['Fecha Venta', 'Tipo', 'Producto', 'Monto', 'Responsable']].rename(columns={
+            'Fecha Venta' : 'Fecha',
+            'Producto' : 'Nombre',
+            'Monto' : 'Venta'
+        })
+
+        df_consolidado = pd.concat([df_gastos,df_abono,table_jornales,table_sendMoney,table_sales],axis=0)
         df_consolidado.sort_values(by='Fecha',ascending=True)
         df_consolidado['Actividad'] = df_consolidado['Actividad'].fillna('')
+        df_consolidado = df_consolidado[['Fecha', 'Responsable','Tipo', 'Nombre', 'Actividad', 'Descripcion', 'Monto', 'GastoAbono', 'Jornal', 'Enviado', 'Venta']]
+        df_consolidado.to_csv('out/consolidado.csv', index=False)
+        print(df_consolidado)
         return df_consolidado
 
     def updateExpenses(self, e_code, data):
@@ -144,3 +156,152 @@ class Pipelines:
     def deleteJornal(self, j_code):
         self.mongo_service.delete_Jornal(j_code)
         return True
+    
+    def addTotal(self, df_export: pd.DataFrame = None) -> pd.DataFrame:
+        total_row = {}
+
+        for col in df_export.columns:
+            if pd.api.types.is_numeric_dtype(df_export[col]):
+                total_row[col] = df_export[col].sum()
+            else:
+                total_row[col] = ""
+
+        df_export = pd.concat([df_export, pd.DataFrame([total_row])], ignore_index=True)
+        return df_export
+    
+    def exportSummaryExcelFormatted(self, df_summary: pd.DataFrame, path: str = 'out/export_summary.xlsx', headers: list = None) -> bool:
+        static_width = ["Fecha", "Tipo"]
+        format_columns_center = headers[1:]
+
+        # Reemplazar titulos 
+        df_summary.columns = headers[1:]
+
+        border = Border(
+            left=Side(border_style="thin", color="434241"),
+            right=Side(border_style="thin", color="434241"),
+            top=Side(border_style="thin", color="434241"),
+            bottom=Side(border_style="thin", color="434241")
+        )
+        font_black = Font(color="000000", bold=True)
+        font_white = Font(color="FFFFFF", bold=True)
+
+        # Crear un estilo con formato de contabilidad
+        format_account_soles = NamedStyle(
+            name="accounting_style_soles",
+            number_format='"S/" #,##0.00_);[Red]("S/" #,##0.00)'
+        )
+        format_account_soles.font = Font(name="Calibri", size=11)
+        format_account_soles.alignment = Alignment(horizontal="center")
+
+        # Estilos para la fecha
+        date_format_style = NamedStyle(
+            name="date_format_style",
+            number_format="dd/mm/yyyy"  # solo fecha (Perú)
+        )
+        date_format_style.font = Font(name="Calibri", size=11)
+        date_format_style.alignment = Alignment(horizontal="center")
+
+        # Búsqueda de índices
+        col_idx_fecha = df_summary.columns.get_loc("Fecha") + 1
+        col_idx_tipo = df_summary.columns.get_loc("Tipo") + 1
+        col_idx_gasto = df_summary.columns.get_loc("Gasto (S/.)") + 1
+        col_idx_gastoabono = df_summary.columns.get_loc("Abono (S/.)") + 1
+        col_idx_enviado= df_summary.columns.get_loc("Enviado (S/.)") + 1
+        col_idx_venta = df_summary.columns.get_loc("Venta Cacao (S/.)") + 1
+        col_idx_jornal = df_summary.columns.get_loc("Jornal (S/.)") + 1
+
+        # Obteniendo las columnas
+        col_letter_fecha = get_column_letter(col_idx_fecha)
+        col_letter_tipo = get_column_letter(col_idx_tipo)
+        col_letter_gasto = get_column_letter(col_idx_gasto)
+        col_letter_gastoabono = get_column_letter(col_idx_gastoabono)
+        col_letter_enviado = get_column_letter(col_idx_enviado)
+        col_letter_venta = get_column_letter(col_idx_venta)
+        col_letter_jornal = get_column_letter(col_idx_jornal)
+
+        # Estilos de fill
+        fill_1 = PatternFill(start_color="D6D64B", end_color="D6D64B", fill_type="solid")
+        fill_2 = PatternFill(start_color="c05d49", end_color="c05d49", fill_type="solid")
+        fill_3 = PatternFill(start_color="1F66E0", end_color="1F66E0", fill_type="solid")
+        fill_4 = PatternFill(start_color="3cad27", end_color="3cad27", fill_type="solid")
+        fill_gray = PatternFill(start_color="DDDDDD", end_color="DDDDDD", fill_type="solid")
+
+        with pd.ExcelWriter(path, engine='openpyxl') as writer:
+            df_summary.to_excel(writer, index=False, sheet_name='Reporte')
+
+            # Accede al workbook y worksheet
+            workbook = writer.book
+            worksheet = writer.sheets['Reporte']
+            worksheet.auto_filter.ref = worksheet.dimensions
+
+            header_fill = PatternFill(start_color="FFC000", end_color="FFC000", fill_type="solid")
+            header_font = Font(bold=True)
+
+            for cell in worksheet[1]:  # Primera fila (encabezados)
+                cell.fill = header_fill
+                cell.font = header_font
+
+            last_row = len(df_summary) + 1  # +1 por el encabezado
+
+            # --- Aplicar bordes y colores en la columna 'Estado' ---
+            for row in range(2, last_row + 1):  # Desde la fila 2 hasta la última
+                cell_fecha = worksheet[f"{col_letter_fecha}{row}"]
+                cell_tipo = worksheet[f"{col_letter_tipo}{row}"]
+                cell_gasto = worksheet[f"{col_letter_gasto}{row}"]
+                cell_gastoabono = worksheet[f"{col_letter_gastoabono}{row}"]
+                cell_enviado = worksheet[f"{col_letter_enviado}{row}"]
+                cell_venta = worksheet[f"{col_letter_venta}{row}"]
+                cell_jornal = worksheet[f"{col_letter_jornal}{row}"]
+
+                cell_venta.style = format_account_soles
+                cell_gasto.style = format_account_soles
+                cell_gastoabono.style = format_account_soles
+                cell_enviado.style = format_account_soles
+                cell_venta.style = format_account_soles
+                cell_fecha.style = date_format_style
+                cell_jornal.style = format_account_soles
+
+                # Aplicar color en base al tipo
+                if cell_tipo.value == "Víveres":
+                    cell_tipo.fill = fill_2
+                    cell_tipo.font = font_white
+                if cell_tipo.value == "Gastos":
+                    cell_tipo.fill = fill_2
+                    cell_tipo.font = font_white
+                if cell_tipo.value == "Jornales": 
+                    cell_tipo.fill = fill_3
+                    cell_tipo.font = font_white
+                if cell_tipo.value == "Efectivo":
+                    cell_tipo.fill = fill_1
+                    cell_tipo.font = font_black
+                if cell_tipo.value == "Venta Cacao":
+                    cell_tipo.fill = fill_4
+                    cell_tipo.font = font_white
+
+            # --- Ajustar ancho de columnas automáticamente ---
+            for col_idx, column in enumerate(df_summary.columns, start=1):
+                if column in static_width: 
+                    col_letter = get_column_letter(col_idx)
+                    worksheet.column_dimensions[col_letter].width = len(column) + 10
+                else:
+                    max_length = max(
+                        df_summary[column].astype(str).map(len).max(),
+                        len(column)  # incluye el nombre de la columna
+                    )
+                    col_letter = get_column_letter(col_idx)
+                    worksheet.column_dimensions[col_letter].width = max_length + 10  # padding
+                if column in format_columns_center:
+                    for row in range(2, len(df_summary) + 2):
+                        worksheet.cell(row=row, column=col_idx).alignment = Alignment(horizontal="center")
+
+            # Aplica el borde a todas las celdas de la hoja
+            for row in worksheet.iter_rows(min_row=1, max_row=worksheet.max_row, min_col=1, max_col=worksheet.max_column):
+                for cell in row:
+                    cell.border = border
+
+            # --- Pintar solo la última columna de gris ---
+            last_row = worksheet.max_row
+            max_col  = worksheet.max_column
+
+            for c in range(1, max_col + 1):
+                worksheet.cell(row=last_row, column=c).fill = fill_gray

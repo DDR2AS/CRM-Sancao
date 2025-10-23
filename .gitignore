@@ -11,4 +11,6 @@ keys/token-oauth.json
 build/
 dist/
 app.spec
-icon.icoJ
+icon.ico
+*.csv
+notebooks

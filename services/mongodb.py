@@ -42,7 +42,8 @@ class DBMongo:
             "Monto Total" : "$amount",
             "Cantidad": "$quantity",
             "Actividad" : "$activity",
-            "fileDriveUrl" : 1
+            "fileDriveUrl" : 1,
+            "Responsable" : "$createdBy"
         }
         ).sort({"createdAt" : -1})
         df_expenses = pd.DataFrame(list(expenses))
@@ -62,7 +63,8 @@ class DBMongo:
                 "Monto Total": "$amount",
                 "Actividad" : "$activity",
                 "COD" : "$j_code",
-                "Tipo": "$type"
+                "Tipo": "$type",
+                "Responsable" : "$createdBy"
             }
             ).sort({"Fecha": -1})
         
@@ -83,7 +85,8 @@ class DBMongo:
                 "Monto" : "$amount",
                 "COD" : "$v_code",
                 "fileDriveUrl": 1,
-                "Tipo" : "$type" 
+                "Tipo" : "$type",
+                "Responsable" : "$createdBy"
             }
         ).sort({"Fecha Venta" : -1})
         df_sales = pd.DataFrame(list(sales))
@@ -191,7 +194,8 @@ class DBMongo:
             "COD" : "$s_code",
             "Fecha" : "$sentAt",
             "Descripcion" : "$description",
-            "Url" : "$fileDriveUrl"
+            "Url" : "$fileDriveUrl",
+            "Responsable" : "$createdBy"
         }
         ).sort({"Fecha" : -1})
         df_sendMoney = pd.DataFrame(list(sendMoney))

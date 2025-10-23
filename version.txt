@@ -1,0 +1,10 @@
+# file_version_info
+VSVersionInfo(
+  ffi=FixedFileInfo(filevers=(1,0,0,0), prodvers=(1,0,0,0), ...),
+  StringFileInfo([StringTable('040904B0', [
+    StringStruct('CompanyName', 'DAAS Consulting S.A.C'),
+    StringStruct('FileDescription', 'Mi App'),
+    StringStruct('FileVersion', '1.0.0'),
+  ])]),
+  VarFileInfo([VarStruct('Translation', [1033, 1200])])
+)

@@ -51,35 +51,42 @@ class ResumenFrame(ctk.CTkFrame):
         frame_gasto = ctk.CTkFrame(frame_totales, fg_color="#ff4d4f", corner_radius=10)
         frame_gasto.pack(side="left", padx=(0, 15), ipadx=15, ipady=10)
 
-        self.label_gasto = ctk.CTkLabel(frame_gasto, text="Gasto Total: S/ 0.0", font=("Segoe UI", 15, "bold"), text_color="white")
+        self.label_gasto = ctk.CTkLabel(frame_gasto, text="Gasto Total: S/ 0.0", font=("Segoe UI", 12.5, "bold"), text_color="white")
         self.label_gasto.pack()
 
-        # Sub-frame para jornales
-        frame_jornales = ctk.CTkFrame(frame_totales, fg_color="#1c39dd", corner_radius=10)
-        frame_jornales.pack(side='left', padx=(0, 15), ipadx=15, ipady=10)
+        # Sub-frame para jornales diarios
+        frame_jornales_diario = ctk.CTkFrame(frame_totales, fg_color="#1c39dd", corner_radius=10)
+        frame_jornales_diario.pack(side='left', padx=(0, 15), ipadx=15, ipady=10)
 
-        self.label_jornales = ctk.CTkLabel(frame_jornales, text="Total Jornal: S/ 0.0", font=("Segoe UI", 14, "bold"), text_color="white")
-        self.label_jornales.pack()
+        self.label_jornales_diario = ctk.CTkLabel(frame_jornales_diario, text="Jornal Diario: S/ 0.0", font=("Segoe UI", 12.5, "bold"), text_color="white")
+        self.label_jornales_diario.pack()
+
+        # Sub-frame para jornales mensuales
+        frame_jornales_mensual = ctk.CTkFrame(frame_totales, fg_color="#1ca0dd", corner_radius=10)
+        frame_jornales_mensual.pack(side='left', padx=(0, 15), ipadx=15, ipady=10)
+
+        self.label_jornales_mensual = ctk.CTkLabel(frame_jornales_mensual, text="Jornal Mensual: S/ 0.0", font=("Segoe UI", 12.5, "bold"), text_color="white")
+        self.label_jornales_mensual.pack()
 
         # Sub-frame para abono
         frame_abono = ctk.CTkFrame(frame_totales, fg_color="#f1a643", corner_radius=10)
         frame_abono.pack(side='left', padx=(0, 15), ipadx=15, ipady=10)
 
-        self.label_abono = ctk.CTkLabel(frame_abono, text="Gasto Abono: S/ 0.0", font=("Segoe UI", 14, "bold"), text_color="#333")
+        self.label_abono = ctk.CTkLabel(frame_abono, text="Gasto Abono: S/ 0.0", font=("Segoe UI", 12.5, "bold"), text_color="#333")
         self.label_abono.pack()
 
         # Sub-frame para enviado
         frame_enviado = ctk.CTkFrame(frame_totales, fg_color="#1cddb3", corner_radius=10)
         frame_enviado.pack(side="left", padx=(0, 15), ipadx=15, ipady=10)
 
-        self.label_enviado = ctk.CTkLabel(frame_enviado, text="Total Enviado: S/ 0.0", font=("Segoe UI", 14, "bold"), text_color="#333")
+        self.label_enviado = ctk.CTkLabel(frame_enviado, text="Total Enviado: S/ 0.0", font=("Segoe UI", 12.5, "bold"), text_color="#333")
         self.label_enviado.pack()
 
         # Sub-frame para venta de cacao
         frame_venta = ctk.CTkFrame(frame_totales, fg_color="#1CB460", corner_radius=10)
         frame_venta.pack(side="left", ipadx=15, ipady=10)
 
-        self.label_venta = ctk.CTkLabel(frame_venta, text="Total Vendido: S/ 0.0", font=("Segoe UI", 14, "bold"), text_color="#333")
+        self.label_venta = ctk.CTkLabel(frame_venta, text="Ventas: S/ 0.0", font=("Segoe UI", 12.5, "bold"), text_color="#333")
         self.label_venta.pack()
 
 
@@ -111,8 +118,8 @@ class ResumenFrame(ctk.CTkFrame):
         scrollbar_x.pack(side="bottom", fill="x")
         
         # Tabla Detalle
-        self.tabla_detalle_columns  = ("Item", "Fecha", "Responsable", "Tipo", "Nombre", "Actividad", "Descripción", "Abono (S/.)" ,"Gasto (S/.)", "Jornal (S/.)" ,"Enviado (S/.)", "Venta Cacao (S/.)")
-        self.width1 = [54, 95, 112, 88, 196, 130, 169, 140, 130, 130, 130, 175]
+        self.tabla_detalle_columns  = ("Item", "Fecha", "Responsable", "Tipo", "Nombre", "Actividad", "Descripción", "Abono (S/.)" ,"Gasto (S/.)", "Jornal (S/.)" , "J. Mensual (S/.)","Enviado (S/.)", "Venta Cacao (S/.)")
+        self.width1 = [54, 95, 112, 88, 196, 130, 169, 140, 130, 130, 130, 130, 175]
         self.tabla_detalle = ttk.Treeview(tabla_frame,
                                           columns=self.tabla_detalle_columns,
                                           show="headings",
@@ -128,6 +135,10 @@ class ResumenFrame(ctk.CTkFrame):
         # Asociar scrollbars
         scrollbar_y.config(command=self.tabla_detalle.yview)
         scrollbar_x.config(command=self.tabla_detalle.xview)
+
+        # Colores alternos
+        self.tabla_detalle.tag_configure('evenrow', background='#f2f2f2')  # Gris claro
+        self.tabla_detalle.tag_configure('oddrow', background='white')      # Blanco
         
         # Botón exportar datos
         self.boton_exportar = ctk.CTkButton(self, text="Exportar a Excel", command=self.exportar_a_excel)
@@ -173,7 +184,8 @@ class ResumenFrame(ctk.CTkFrame):
             datos = datos.sort_values(by="Fecha", ascending=True)
 
         total_gastos = 0.0
-        total_jornal = 0.0
+        total_jornal_diario = 0.0
+        total_jornal_mensual = 0.0
         total_enviado = 0.0
         total_abono = 0.0
         total_venta = 0.0
@@ -192,7 +204,8 @@ class ResumenFrame(ctk.CTkFrame):
             descripcion = row.Descripcion if pd.notna(getattr(row, "Descripcion", "")) else ""
             gastoAbono = row.GastoAbono if pd.notna(getattr(row, "GastoAbono", "")) else 0.0
             monto = row.Monto if pd.notna(getattr(row, "Monto", "")) else 0.0
-            jornal = row.Jornal if pd.notna(getattr(row, "Jornal", "")) else 0.0
+            jornalDiario = row.JornalDiario if pd.notna(getattr(row, "JornalDiario", "")) else 0.0
+            jornalMensual = row.JornalMensual if pd.notna(getattr(row, "JornalMensual", "")) else 0.0
             enviado = row.Enviado if pd.notna(getattr(row, "Enviado", "")) else 0.0
             venta = row.Venta if pd.notna(getattr(row, "Venta", "")) else 0.0
 
@@ -207,24 +220,27 @@ class ResumenFrame(ctk.CTkFrame):
                 descripcion,
                 f"{gastoAbono:.2f}" if gastoAbono else "",
                 f"{monto:.2f}" if monto else "",
-                f"{jornal:.2f}" if jornal else "",
+                f"{jornalDiario:.2f}" if jornalDiario else "",
+                f"{jornalMensual:.2f}" if jornalMensual else "",
                 f"{enviado:.2f}" if enviado else "",
                 f"{venta:.2f}" if venta else ""
             ))
 
             # Acumular totales
             total_gastos += float(monto)
-            total_jornal += float(jornal)
+            total_jornal_diario += float(jornalDiario)
+            total_jornal_mensual += float(jornalMensual)
             total_enviado += float(enviado)
             total_abono += float(gastoAbono)
             total_venta += float(venta)
 
         # Actualizar labels de totales
         self.label_gasto.configure(text=f"Gasto Total: S/{total_gastos:,.1f}")
-        self.label_jornales.configure(text=f"Total Jornal: S/{total_jornal:,.1f}")
+        self.label_jornales_diario.configure(text=f"Jornal Diario: S/{total_jornal_diario:,.1f}")
+        self.label_jornales_mensual.configure(text=f"Jornal Mensual: S/{total_jornal_mensual:,.1f}")
         self.label_enviado.configure(text=f"Total Enviado: S/{total_enviado:,.1f}")
         self.label_abono.configure(text=f"Gasto Abono: S/{total_abono:,.1f}")
-        self.label_venta.configure(text=f"Total Vendido: S/{total_venta:,.1f}")
+        self.label_venta.configure(text=f"Ventas: S/{total_venta:,.1f}")
 
     def aplicar_filtro_fechas(self):
         try:

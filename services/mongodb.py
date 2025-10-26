@@ -65,6 +65,7 @@ class DBMongo:
                 "Actividad" : "$activity",
                 "COD" : "$j_code",
                 "Tipo": "$type",
+                "Periodo" : "$payroll_type",
                 "Responsable" : "$createdBy"
             }
             ).sort({"Fecha": -1})
@@ -349,8 +350,10 @@ class DBMongo:
                 "COD": "j_code",
                 "Fecha Trabajo": "date_journal",
                 "Actividad" : "activity",
+                "Descripción" : "description",
                 "Monto Total": "amount",
-                "Trabajador" : "fullname"
+                "Trabajador" : "fullname",
+                "Tipo" : "payroll_type"
             }
 
         update_doc = {}

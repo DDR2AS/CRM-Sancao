@@ -1,11 +1,12 @@
 from openpyxl.styles import PatternFill, Font, Alignment, Border, Side, NamedStyle
 from openpyxl.utils import get_column_letter
-from services.drive_manager import GoogleService 
 from datetime import datetime, timedelta, timezone
-from services.mongodb import DBMongo
 import pandas as pd
+import numpy as np
 import threading
 
+from services.drive_manager import GoogleService
+from services.mongodb import DBMongo
 
 class Pipelines:
     def __init__(self, database_service: DBMongo, google_service: GoogleService):
@@ -91,11 +92,15 @@ class Pipelines:
         df_gastos = table_expenses[table_expenses['Producto'] != 'Abono'][['Fecha','Tipo','Producto','Actividad','Descripcion','Monto Total','Responsable']].rename(columns={'Producto': 'Nombre', 'Monto Total': 'Monto'})
 
         # Formateando Tabla Jornales
-        table_jornales = table_jornales[['Fecha Trabajo','Tipo','Trabajador','Actividad', 'Descripcion','Monto Total', 'Responsable']].rename(columns={
+        table_jornales = table_jornales[['Fecha Trabajo','Tipo','Trabajador','Actividad', 'Descripcion','Monto Total', 'Responsable', 'Periodo']].rename(columns={
             'Fecha Trabajo' : 'Fecha',
             'Trabajador' : 'Nombre',
             'Monto Total' : 'Jornal'
         })
+        table_jornales['JornalMensual'] = np.where(table_jornales['Periodo'] == 'Mensual', table_jornales['Jornal'], None)
+        table_jornales['JornalDiario'] = np.where((table_jornales['Periodo'] != 'Mensual') | (table_jornales['Periodo'].isna()), table_jornales['Jornal'], None)
+
+        table_jornales.to_csv("out/jornales_proceed.csv", index=False)
 
         # Formateando Tabla Enviado
         table_sendMoney = table_sendMoney[['Fecha', 'Tipo','Descripcion', 'Monto Total', 'Responsable']].rename(columns={
@@ -112,8 +117,8 @@ class Pipelines:
         df_consolidado = pd.concat([df_gastos,df_abono,table_jornales,table_sendMoney,table_sales],axis=0)
         df_consolidado.sort_values(by='Fecha',ascending=True)
         df_consolidado['Actividad'] = df_consolidado['Actividad'].fillna('')
-        df_consolidado = df_consolidado[['Fecha', 'Responsable','Tipo', 'Nombre', 'Actividad', 'Descripcion', 'Monto', 'GastoAbono', 'Jornal', 'Enviado', 'Venta']]
-        #df_consolidado.to_csv('out/consolidado.csv', index=False)
+        df_consolidado = df_consolidado[['Fecha', 'Responsable','Tipo', 'Nombre', 'Actividad', 'Descripcion', 'Monto', 'GastoAbono', 'JornalDiario', 'JornalMensual', 'Enviado', 'Venta']]
+        df_consolidado.to_csv('out/consolidado2.csv', index=False)
         print(df_consolidado)
         return df_consolidado
 
@@ -209,6 +214,7 @@ class Pipelines:
         col_idx_enviado= df_summary.columns.get_loc("Enviado (S/.)") + 1
         col_idx_venta = df_summary.columns.get_loc("Venta Cacao (S/.)") + 1
         col_idx_jornal = df_summary.columns.get_loc("Jornal (S/.)") + 1
+        col_idx_jornal_mensual = df_summary.columns.get_loc("J. Mensual (S/.)") + 1
 
         # Obteniendo las columnas
         col_letter_fecha = get_column_letter(col_idx_fecha)
@@ -218,6 +224,7 @@ class Pipelines:
         col_letter_enviado = get_column_letter(col_idx_enviado)
         col_letter_venta = get_column_letter(col_idx_venta)
         col_letter_jornal = get_column_letter(col_idx_jornal)
+        col_letter_jornal_mensual = get_column_letter(col_idx_jornal_mensual)
 
         # Estilos de fill
         fill_1 = PatternFill(start_color="D6D64B", end_color="D6D64B", fill_type="solid")
@@ -252,6 +259,7 @@ class Pipelines:
                 cell_enviado = worksheet[f"{col_letter_enviado}{row}"]
                 cell_venta = worksheet[f"{col_letter_venta}{row}"]
                 cell_jornal = worksheet[f"{col_letter_jornal}{row}"]
+                cell_jornal_mensual = worksheet[f"{col_letter_jornal_mensual}{row}"]
 
                 cell_venta.style = format_account_soles
                 cell_gasto.style = format_account_soles
@@ -260,6 +268,7 @@ class Pipelines:
                 cell_venta.style = format_account_soles
                 cell_fecha.style = date_format_style
                 cell_jornal.style = format_account_soles
+                cell_jornal_mensual.style = format_account_soles
 
                 # Aplicar color en base al tipo
                 if cell_tipo.value == "Víveres":

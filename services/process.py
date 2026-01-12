@@ -169,7 +169,16 @@ class Pipelines:
             if pd.api.types.is_numeric_dtype(df_export[col]):
                 total_row[col] = df_export[col].sum()
             else:
-                total_row[col] = ""
+                # Try to convert to numeric and sum (handles columns with None values)
+                try:
+                    numeric_col = pd.to_numeric(df_export[col], errors='coerce')
+                    col_sum = numeric_col.sum()
+                    if col_sum > 0:
+                        total_row[col] = col_sum
+                    else:
+                        total_row[col] = ""
+                except:
+                    total_row[col] = ""
 
         df_export = pd.concat([df_export, pd.DataFrame([total_row])], ignore_index=True)
         return df_export

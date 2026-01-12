@@ -10,7 +10,7 @@ from services.process import Pipelines
 
 class JornalesFrame(ctk.CTkFrame):
     def __init__(self, master, process: Pipelines):
-        super().__init__(master,fg_color="white")
+        super().__init__(master, fg_color="white")
 
         self.process = process
 
@@ -18,172 +18,303 @@ class JornalesFrame(ctk.CTkFrame):
             self.datos = self.process.getJornales()
         except Exception as e:
             print("Error al obtener datos desde process.getJornales(): ", e)
-            self.columns = ("COD","Fecha Trabajo", "Actividad", "Descripción","Monto Total", "Trabajador", "Tipo")
+            self.columns = ("COD", "Fecha Trabajo", "Actividad", "Descripción", "Monto Total", "Trabajador", "Tipo")
             self.datos = pd.DataFrame(columns=self.columns)
 
-        # Frame contenedor de título y filtros en una sola fila
-        titulo_filtro_frame = ctk.CTkFrame(self, fg_color="transparent")
-        titulo_filtro_frame.pack(fill="x", padx=20, pady=(10, 0))
+        # ===================== HEADER ===================== #
+        header_frame = ctk.CTkFrame(self, fg_color="#F8F9FA", corner_radius=0)
+        header_frame.pack(fill="x")
 
-        # ===================== TITULO ===================== #
-        titulo_label = ctk.CTkLabel(
-            titulo_filtro_frame,
-            text="Jornales",
-            font=("Arial", 22, "bold"),
-            anchor="w",
-            justify="left"
-        )
-        titulo_label.pack(side="left", padx=(0, 20))
+        header_inner = ctk.CTkFrame(header_frame, fg_color="transparent")
+        header_inner.pack(fill="x", padx=25, pady=15)
 
-        # ===================== Filtro Fecha inicio y Fecha fin ===================== #
-        filtro_frame = ctk.CTkFrame(titulo_filtro_frame, fg_color="transparent")
-        filtro_frame.pack(side="right")  # alineado a la derecha en la misma fila
+        # Título
+        ctk.CTkLabel(
+            header_inner,
+            text="Gestión de Jornales",
+            font=("Segoe UI", 24, "bold"),
+            text_color="#1a1a2e"
+        ).pack(side="left")
+
+        # Filtro frame (derecha)
+        filtro_frame = ctk.CTkFrame(header_inner, fg_color="transparent")
+        filtro_frame.pack(side="right")
 
         # Obtener primer día del mes actual
         hoy = datetime.today()
         first_day = hoy.replace(day=1)
 
-        ctk.CTkLabel(filtro_frame, text="Fecha Inicio:").pack(side="left", padx=(10, 5))
-        self.date_inicio = DateEntry(filtro_frame, date_pattern="yyyy-mm-dd")
-        self.date_inicio.set_date(first_day)  # Asignamos el primer día del mes
-        self.date_inicio.pack(side="left", padx=5, pady=10)
+        ctk.CTkLabel(filtro_frame, text="Desde:", font=("Segoe UI", 12), text_color="#555").pack(side="left", padx=(0, 5))
+        self.date_inicio = DateEntry(filtro_frame, date_pattern="yyyy-mm-dd", font=("Segoe UI", 10))
+        self.date_inicio.set_date(first_day)
+        self.date_inicio.pack(side="left", padx=(0, 12))
 
-        ctk.CTkLabel(filtro_frame, text="Fecha Fin:").pack(side="left", padx=(10, 5))
-        self.date_fin = DateEntry(filtro_frame, date_pattern="yyyy-mm-dd")
-        self.date_fin.pack(side="left", padx=5, pady=10)
+        ctk.CTkLabel(filtro_frame, text="Hasta:", font=("Segoe UI", 12), text_color="#555").pack(side="left", padx=(0, 5))
+        self.date_fin = DateEntry(filtro_frame, date_pattern="yyyy-mm-dd", font=("Segoe UI", 10))
+        self.date_fin.pack(side="left", padx=(0, 12))
 
         ctk.CTkButton(
             filtro_frame,
             text="Filtrar",
-            command=self.filterTableByDates
-        ).pack(side="left", padx=10, pady=10)
+            command=self.filterTableByDates,
+            width=90,
+            height=32,
+            font=("Segoe UI", 12, "bold"),
+            fg_color="#3EA5FF",
+            hover_color="#2196F3",
+            corner_radius=6
+        ).pack(side="left")
 
         # ===================== TOTALES ===================== #
-        frame_totales = ctk.CTkFrame(self, fg_color="white")
-        frame_totales.pack(fill="x", padx=20, pady=10)  # fill="x" permite usar ambos lados
+        totales_frame = ctk.CTkFrame(self, fg_color="transparent")
+        totales_frame.pack(fill="x", padx=25, pady=(15, 10))
 
-        # Sub-frame IZQUIERDA: para totales
-        frame_izquierda = ctk.CTkFrame(frame_totales, fg_color="white")
-        frame_izquierda.pack(side="left")
+        # Card Jornal Diario
+        frame_diario = ctk.CTkFrame(totales_frame, fg_color="#1c39dd", corner_radius=10)
+        frame_diario.pack(side="left")
 
-        # Sub-frame para Jornal
-        frame_jornal = ctk.CTkFrame(frame_izquierda, fg_color="#1c69f7", corner_radius=10)
-        frame_jornal.pack(side="left", padx=(0, 15), ipadx=15, ipady=10)
+        diario_inner = ctk.CTkFrame(frame_diario, fg_color="transparent")
+        diario_inner.pack(padx=20, pady=12)
 
-        self.label_gasto = ctk.CTkLabel(
-            frame_jornal,
-            text="Total Jornal: S/ 0.0",
-            font=("Segoe UI", 15, "bold"),
-            text_color="white"
-        )
-        self.label_gasto.pack()
+        ctk.CTkLabel(diario_inner, text="J. DIARIO", font=("Segoe UI", 11), text_color="#C5CAF5").pack(anchor="w")
+        self.label_diario = ctk.CTkLabel(diario_inner, text="S/ 0.0", font=("Segoe UI", 22, "bold"), text_color="white")
+        self.label_diario.pack(anchor="w")
 
-        # Sub-frame DERECHA: para botón
-        frame_derecha = ctk.CTkFrame(frame_totales, fg_color="white")
-        frame_derecha.pack(side="right")
+        # Card Jornal Mensual
+        frame_mensual = ctk.CTkFrame(totales_frame, fg_color="#1ca0dd", corner_radius=10)
+        frame_mensual.pack(side="left", padx=(15, 0))
 
-        boton_crear = ctk.CTkButton(
-            frame_derecha,
-            text="Crear",
-            fg_color="#00b050",       # verde agradable
-            hover_color="#009645",
+        mensual_inner = ctk.CTkFrame(frame_mensual, fg_color="transparent")
+        mensual_inner.pack(padx=20, pady=12)
+
+        ctk.CTkLabel(mensual_inner, text="J. MENSUAL", font=("Segoe UI", 11), text_color="#C5E8F5").pack(anchor="w")
+        self.label_mensual = ctk.CTkLabel(mensual_inner, text="S/ 0.0", font=("Segoe UI", 22, "bold"), text_color="white")
+        self.label_mensual.pack(anchor="w")
+
+        # Card Total
+        frame_total = ctk.CTkFrame(totales_frame, fg_color="#6C757D", corner_radius=10)
+        frame_total.pack(side="left", padx=(15, 0))
+
+        total_inner = ctk.CTkFrame(frame_total, fg_color="transparent")
+        total_inner.pack(padx=20, pady=12)
+
+        ctk.CTkLabel(total_inner, text="TOTAL", font=("Segoe UI", 11), text_color="#E9ECEF").pack(anchor="w")
+        self.label_gasto = ctk.CTkLabel(total_inner, text="S/ 0.0", font=("Segoe UI", 22, "bold"), text_color="white")
+        self.label_gasto.pack(anchor="w")
+
+        # Botón Crear (derecha)
+        ctk.CTkButton(
+            totales_frame,
+            text="+ Nuevo Jornal",
+            fg_color="#28a745",
+            hover_color="#1e7e34",
             text_color="white",
-            font=("Segoe UI", 12, "bold"),
-            width=120,
-            height=20,
+            font=("Segoe UI", 13, "bold"),
+            width=140,
+            height=38,
             corner_radius=8,
             command=self.insert_new_data
-        )
-        boton_crear.pack()
-        """
-        frame_totales = ctk.CTkFrame(self, fg_color="white")
-        frame_totales.pack(anchor="w", padx=20, pady=5)
+        ).pack(side="right")
 
-        # Sub-frame para Jornal
-        frame_jornal = ctk.CTkFrame(frame_totales, fg_color="#1c69f7", corner_radius=10)
-        frame_jornal.pack(side="left", padx=(0, 15), ipadx=15, ipady=10)
-
-        self.label_gasto = ctk.CTkLabel(frame_jornal, text="Total Jornal: S/ 0.0", font=("Segoe UI", 15, "bold"), text_color="white")
-        self.label_gasto.pack()
-        """
-        # Estilos de tabla
+        # ===================== TABLA ===================== #
         style = ttk.Style()
         style.theme_use("clam")
         style.configure("Treeview",
-                        font=("Segoe UI", 12),
-                        rowheight=32,
-                        background="#F9F9F9",
-                        fieldbackground="#F9F9F9",
-                        foreground="#333333",
-                        borderwidth=0)
+                        font=("Segoe UI", 13),
+                        rowheight=38,
+                        background="#FFFFFF",
+                        fieldbackground="#FFFFFF",
+                        foreground="#222222",
+                        borderwidth=1,
+                        relief="solid")
         style.configure("Treeview.Heading",
-                        font=("Segoe UI", 14, "bold"),
-                        background="#3EA5FF",
-                        foreground="#000000",
-                        relief="flat")
-        
-        # ===================== TABLA DETALLE ===================== #
+                        font=("Segoe UI", 13, "bold"),
+                        background="#2C3E50",
+                        foreground="#FFFFFF",
+                        relief="flat",
+                        padding=(10, 8))
+        style.map("Treeview",
+                  background=[("selected", "#E3F2FD")],
+                  foreground=[("selected", "#1565C0")])
+        style.map("Treeview.Heading",
+                  background=[("active", "#34495E")])
+
         # Frame contenedor para tabla y scrollbar
-        tabla_frame = tk.Frame(self)
-        tabla_frame.pack(fill="both", expand=True, padx=20, pady=(5, 0))
-        # Scrollbar vertical
+        tabla_container = ctk.CTkFrame(self, fg_color="#FFFFFF", corner_radius=10)
+        tabla_container.pack(fill="both", expand=True, padx=25, pady=(5, 15))
+
+        tabla_frame = tk.Frame(tabla_container, bg="#FFFFFF")
+        tabla_frame.pack(fill="both", expand=True, padx=2, pady=2)
+
+        # Scrollbars
         scrollbar_y = ttk.Scrollbar(tabla_frame, orient="vertical")
-        scrollbar_y.pack(side="right", fill="y")
-        # Scrollbar horizontal
         scrollbar_x = ttk.Scrollbar(tabla_frame, orient="horizontal")
-        scrollbar_x.pack(side="bottom", fill="x")
 
         # Tabla Detalle
-        self.columns = ("COD","Fecha Trabajo", "Actividad", "Descripción", "Monto Total", "Trabajador", "Tipo")
-        self.widths = [70, 120, 200, 200, 150, 300, 100]
-        self.tree = ttk.Treeview(tabla_frame, columns=self.columns, show="headings", height=8, yscrollcommand=scrollbar_y, xscrollcommand=scrollbar_x)
-        
+        self.columns = ("COD", "Fecha Trabajo", "Actividad", "Descripción", "Monto Total", "Trabajador", "Tipo")
+        self.widths = [80, 110, 150, 180, 110, 220, 90]
+        self.tree = ttk.Treeview(
+            tabla_frame,
+            columns=self.columns,
+            show="headings",
+            height=10,
+            yscrollcommand=scrollbar_y.set,
+            xscrollcommand=scrollbar_x.set
+        )
+
         for i, col in enumerate(self.columns):
             self.tree.heading(col, text=col)
             self.tree.column(col, anchor=tk.CENTER, width=self.widths[i])
-        
-        self.tree.pack(side="left", fill="both", expand=True)
-        # Asociar scrollbars
+
+        # Tags para filas alternadas
+        self.tree.tag_configure("oddrow", background="#FFFFFF")
+        self.tree.tag_configure("evenrow", background="#F5F5F5")
+
+        # Ubicación de tabla y scrollbars
+        self.tree.grid(row=0, column=0, sticky="nsew")
+        scrollbar_y.grid(row=0, column=1, sticky="ns")
+        scrollbar_x.grid(row=1, column=0, sticky="ew")
+
+        # Configurar scrollbars
         scrollbar_y.config(command=self.tree.yview)
         scrollbar_x.config(command=self.tree.xview)
 
-        self.tree.bind("<Double-1>", self.on_double_click)
-        self.cargar_datos(self.datos)
+        # Expandir tabla al redimensionar
+        tabla_frame.grid_rowconfigure(0, weight=1)
+        tabla_frame.grid_columnconfigure(0, weight=1)
 
-        # ========= FUNCIONES ========= #
+        self.tree.bind("<Double-1>", self.on_double_click)
+        self.filterTableByDates()
+
+    # ========= FUNCIONES ========= #
     def insert_new_data(self):
         insert_window = ctk.CTkToplevel(self)
-        insert_window.title("Crear Jornal")
-        insert_window.geometry("380x280")
-        self.archivo_subido = None
+        insert_window.title("Nuevo Jornal")
 
         # --- Centrar ventana ---
         insert_window.update_idletasks()
-        width, height = 380, 280
+        width, height = 450, 480
         x = (insert_window.winfo_screenwidth() // 2) - (width // 2)
         y = (insert_window.winfo_screenheight() // 2) - (height // 2)
         insert_window.geometry(f"{width}x{height}+{x}+{y}")
 
+        # --- Header con color ---
+        header_bg = ctk.CTkFrame(insert_window, fg_color="#1c39dd", corner_radius=0)
+        header_bg.pack(fill="x")
+
+        header_inner = ctk.CTkFrame(header_bg, fg_color="transparent")
+        header_inner.pack(padx=20, pady=15)
+
+        ctk.CTkLabel(
+            header_inner,
+            text="Nuevo Jornal",
+            font=("Segoe UI", 18, "bold"),
+            text_color="#FFFFFF"
+        ).pack(anchor="w")
+
+        ctk.CTkLabel(
+            header_inner,
+            text="Registrar trabajo diario",
+            font=("Segoe UI", 12),
+            text_color="#C5CAF5"
+        ).pack(anchor="w")
+
+        # --- Main container ---
+        main_frame = ctk.CTkFrame(insert_window, fg_color="transparent")
+        main_frame.pack(fill="both", expand=True, padx=25, pady=15)
+
+        # --- Form frame ---
+        form_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        form_frame.pack(fill="both", expand=True)
+
+        # Opciones para Actividad y Tipo
+        actividades = [
+            "Chaleo", "Poda", "Cosecha", "Secado", "Fermentado",
+            "Cortar Árboles", "Vivero", "Mantenimiento de equipo",
+            "Abono", "Limpieza", "Otro"
+        ]
+        tipos = ["Diario", "Mensual"]
+
         entries = {}
-        for i, col in enumerate(self.columns):
-            label = ctk.CTkLabel(insert_window, text=col)
-            label.grid(row=i, column=0, padx=10, pady=5, sticky="e")
+        row_idx = 0
+        for col in self.columns:
+            if col == "COD":
+                continue  # Skip COD for new entries
 
-            entry = ctk.CTkEntry(insert_window, width=250)
-            entry.grid(row=i, column=1, padx=10, pady=5, sticky="w")
-            entries[col] = entry
-        # --- Botones de acción ---
-        button_frame = ctk.CTkFrame(insert_window, fg_color="transparent")
-        button_frame.grid(row=len(self.columns)+1, column=0, columnspan=2, pady=20)
+            label = ctk.CTkLabel(form_frame, text=col, font=("Segoe UI", 14, "bold"), text_color="#222222", anchor="w")
+            label.grid(row=row_idx, column=0, padx=(0, 12), pady=6, sticky="w")
 
-        btn_guardar = ctk.CTkButton(button_frame, text="Guardar", fg_color="#4CAF50")
-        btn_guardar.pack(side="left", padx=10)
-        btn_cancelar = ctk.CTkButton(button_frame, text="Cancelar", fg_color="#E53935")
-        btn_cancelar.pack(side="left", padx=10)
+            if col == "Actividad":
+                combo = ctk.CTkComboBox(form_frame, values=actividades, width=240, font=("Segoe UI", 13))
+                combo.set("")
+                combo.grid(row=row_idx, column=1, pady=6, sticky="w")
+                entries[col] = combo
+            elif col == "Tipo":
+                combo = ctk.CTkComboBox(form_frame, values=tipos, width=240, font=("Segoe UI", 13))
+                combo.set("Diario")
+                combo.grid(row=row_idx, column=1, pady=6, sticky="w")
+                entries[col] = combo
+            elif col == "Descripción":
+                text_widget = ctk.CTkTextbox(form_frame, width=240, height=60, font=("Segoe UI", 13))
+                text_widget.grid(row=row_idx, column=1, pady=6, sticky="w")
+                entries[col] = text_widget
+            elif col == "Fecha Trabajo":
+                date_entry = DateEntry(form_frame, date_pattern="yyyy-mm-dd", font=("Segoe UI", 11), width=18)
+                date_entry.grid(row=row_idx, column=1, pady=6, sticky="w")
+                entries[col] = date_entry
+            else:
+                entry = ctk.CTkEntry(form_frame, width=240, font=("Segoe UI", 13))
+                entry.grid(row=row_idx, column=1, pady=6, sticky="w")
+                entries[col] = entry
 
-        # --- Funciones Guardar / Cancelar ---
+            row_idx += 1
+
+        # --- Button frame ---
+        button_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        button_frame.pack(fill="x", pady=(15, 0))
+
+        btn_cancelar = ctk.CTkButton(
+            button_frame,
+            text="Cancelar",
+            fg_color="#6C757D",
+            hover_color="#5A6268",
+            width=110,
+            height=38,
+            font=("Segoe UI", 14, "bold"),
+            command=insert_window.destroy
+        )
+        btn_cancelar.pack(side="left")
+
+        btn_guardar = ctk.CTkButton(
+            button_frame,
+            text="Guardar Jornal",
+            fg_color="#28a745",
+            hover_color="#1e7e34",
+            width=140,
+            height=38,
+            font=("Segoe UI", 14, "bold")
+        )
+        btn_guardar.pack(side="right")
+
+        # --- Funciones Guardar ---
         def save_new_entry():
-            new_values = [entries[col].get() for col in self.columns]
+            new_values = []
+            for col in self.columns:
+                if col == "COD":
+                    new_values.append("")  # Will be generated by backend
+                    continue
+                widget = entries.get(col)
+                if isinstance(widget, ctk.CTkEntry):
+                    new_values.append(widget.get())
+                elif isinstance(widget, ctk.CTkComboBox):
+                    new_values.append(widget.get())
+                elif isinstance(widget, ctk.CTkTextbox):
+                    new_values.append(widget.get("1.0", "end").strip())
+                elif isinstance(widget, DateEntry):
+                    new_values.append(widget.get())
+                else:
+                    new_values.append("")
+
             data = dict(zip(self.columns, new_values))
 
             # Aquí iría tu lógica real de guardado:
@@ -194,17 +325,16 @@ class JornalesFrame(ctk.CTkFrame):
             insert_window.destroy()
 
         btn_guardar.configure(command=save_new_entry)
-        btn_cancelar.configure(command=insert_window.destroy)
         
     def recargar_tabla(self):
         try:
             self.datos = self.process.getJornales()
-            self.cargar_datos(self.datos)
+            self.filterTableByDates()
         except Exception as e:
             print("Error al recargar la tabla:", e)
             self.columns = ("COD","Fecha Trabajo", "Actividad", "Descripción", "Monto Total", "Trabajador")
             self.datos = pd.DataFrame(columns=self.columns)
-            self.cargar_datos(self.datos)
+            self.filterTableByDates()
 
     def on_double_click(self,event):
         item_id = self.tree.focus()
@@ -216,56 +346,147 @@ class JornalesFrame(ctk.CTkFrame):
     def open_edit_window(self, item_id, values):
         edit_window = ctk.CTkToplevel(self)
         edit_window.title("Editar Jornal")
-        edit_window.geometry("350x325")
-        self.archivo_subido = None
+
         # --- Centrar ventana ---
         edit_window.update_idletasks()
-        width, height = 380, 325
+        width, height = 450, 480
         x = (edit_window.winfo_screenwidth() // 2) - (width // 2)
         y = (edit_window.winfo_screenheight() // 2) - (height // 2)
         edit_window.geometry(f"{width}x{height}+{x}+{y}")
 
+        # --- Header con color ---
+        header_bg = ctk.CTkFrame(edit_window, fg_color="#1c39dd", corner_radius=0)
+        header_bg.pack(fill="x")
+
+        header_inner = ctk.CTkFrame(header_bg, fg_color="transparent")
+        header_inner.pack(padx=20, pady=15)
+
+        ctk.CTkLabel(
+            header_inner,
+            text="Editar Jornal",
+            font=("Segoe UI", 18, "bold"),
+            text_color="#FFFFFF"
+        ).pack(anchor="w")
+
+        ctk.CTkLabel(
+            header_inner,
+            text=f"Código: {values[0]}",
+            font=("Segoe UI", 12),
+            text_color="#C5CAF5"
+        ).pack(anchor="w")
+
+        # --- Main container ---
+        main_frame = ctk.CTkFrame(edit_window, fg_color="transparent")
+        main_frame.pack(fill="both", expand=True, padx=25, pady=15)
+
+        # --- Form frame ---
+        form_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        form_frame.pack(fill="both", expand=True)
+
+        # Opciones para Actividad y Tipo
+        actividades = [
+            "Chaleo", "Poda", "Cosecha", "Secado", "Fermentado",
+            "Cortar Árboles", "Vivero", "Mantenimiento de equipo",
+            "Abono", "Limpieza", "Otro"
+        ]
+        tipos = ["Diario", "Mensual"]
+
         entries = {}
+        row_idx = 0
         for i, col in enumerate(self.columns):
-            label = ctk.CTkLabel(edit_window, text=col)
-            label.grid(row=i, column=0, padx=10, pady=5, sticky="e")
+            # Skip COD in form since it's in header
+            if col == "COD":
+                entry = ctk.CTkEntry(form_frame, width=240, fg_color="#D0D0D0", text_color="#444444")
+                entry.insert(0, values[i])
+                entry.configure(state="disabled")
+                entries[col] = entry
+                continue
 
-            entry = ctk.CTkEntry(edit_window, width=250)
-            entry.insert(0, values[i])
-            entry.grid(row=i, column=1, padx=10, pady=5, sticky="w")
-            entries[col] = entry
+            label = ctk.CTkLabel(form_frame, text=col, font=("Segoe UI", 14, "bold"), text_color="#222222", anchor="w")
+            label.grid(row=row_idx, column=0, padx=(0, 12), pady=6, sticky="w")
 
-        # --- Botones de acción ---
-        button_frame = ctk.CTkFrame(edit_window, fg_color="transparent")
-        button_frame.grid(row=len(self.columns)+1, column=0, columnspan=2, pady=20)
+            if col == "Actividad":
+                combo = ctk.CTkComboBox(form_frame, values=actividades, width=240, font=("Segoe UI", 13))
+                combo.set(values[i] if values[i] else "")
+                combo.grid(row=row_idx, column=1, pady=6, sticky="w")
+                entries[col] = combo
+            elif col == "Tipo":
+                combo = ctk.CTkComboBox(form_frame, values=tipos, width=240, font=("Segoe UI", 13))
+                combo.set(values[i] if values[i] else "Diario")
+                combo.grid(row=row_idx, column=1, pady=6, sticky="w")
+                entries[col] = combo
+            elif col == "Descripción":
+                text_widget = ctk.CTkTextbox(form_frame, width=240, height=60, font=("Segoe UI", 13))
+                text_widget.insert("1.0", values[i] if values[i] else "")
+                text_widget.grid(row=row_idx, column=1, pady=6, sticky="w")
+                entries[col] = text_widget
+            else:
+                entry = ctk.CTkEntry(form_frame, width=240, font=("Segoe UI", 13))
+                entry.insert(0, values[i] if values[i] else "")
+                entry.grid(row=row_idx, column=1, pady=6, sticky="w")
+                entries[col] = entry
 
-        btn_guardar = ctk.CTkButton(button_frame, text="Guardar", fg_color="#4CAF50")
-        btn_guardar.pack(side="left", padx=10)
-        btn_eliminar = ctk.CTkButton(button_frame, text="Eliminar", fg_color="#E53935")
-        btn_eliminar.pack(side="left", padx=10)
+            row_idx += 1
+
+        # --- Button frame ---
+        button_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        button_frame.pack(fill="x", pady=(15, 0))
+
+        btn_eliminar = ctk.CTkButton(
+            button_frame,
+            text="Eliminar",
+            fg_color="#E53935",
+            hover_color="#C62828",
+            width=110,
+            height=38,
+            font=("Segoe UI", 14, "bold")
+        )
+        btn_eliminar.pack(side="left")
+
+        btn_guardar = ctk.CTkButton(
+            button_frame,
+            text="Guardar cambios",
+            fg_color="#4CAF50",
+            hover_color="#388E3C",
+            width=140,
+            height=38,
+            font=("Segoe UI", 14, "bold")
+        )
+        btn_guardar.pack(side="right")
 
         # --- Funciones Guardar / Eliminar ---
         def save_changes():
-            new_values = [entries[col].get() for col in self.columns]
-            values = dict(zip(self.columns, new_values))
+            new_values = []
+            for col in self.columns:
+                widget = entries[col]
+                if isinstance(widget, ctk.CTkEntry):
+                    new_values.append(widget.get())
+                elif isinstance(widget, ctk.CTkComboBox):
+                    new_values.append(widget.get())
+                elif isinstance(widget, ctk.CTkTextbox):
+                    new_values.append(widget.get("1.0", "end").strip())
+                else:
+                    new_values.append("")
+
+            values_dict = dict(zip(self.columns, new_values))
 
             self.process.updateJornal(
                 j_code=new_values[0],
-                data=values
+                data=values_dict
             )
             self.tree.item(item_id, values=new_values)
             self.recargar_tabla()
             edit_window.destroy()
 
-        def delete_sendMoney():
-            if messagebox.askyesno("Confirmar", "¿Seguro que quieres eliminar esta Jornal?"):
+        def delete_jornal():
+            if messagebox.askyesno("Confirmar", "¿Seguro que quieres eliminar este jornal?"):
                 if self.process.deleteJornal(values[0]):
                     self.tree.delete(item_id)
                 self.recargar_tabla()
                 edit_window.destroy()
 
         btn_guardar.configure(command=save_changes)
-        btn_eliminar.configure(command=delete_sendMoney)
+        btn_eliminar.configure(command=delete_jornal)
 
     def filterTableByDates(self):
         try:
@@ -289,8 +510,13 @@ class JornalesFrame(ctk.CTkFrame):
     def cargar_datos(self, datos):
         for item in self.tree.get_children():
             self.tree.delete(item)
-        datos = datos.sort_values(by="Fecha Trabajo", ascending=True)
+        datos = datos.sort_values(by="COD", ascending=True)
+
         total = 0.0
+        total_diario = 0.0
+        total_mensual = 0.0
+        row_count = 0
+
         for _, row in datos.iterrows():
             fecha = row['Fecha Trabajo']
             if isinstance(fecha, str):
@@ -300,17 +526,29 @@ class JornalesFrame(ctk.CTkFrame):
                 monto = float(row.get("Monto Total", 0))
                 descripcion = row.Descripcion if pd.notna(getattr(row, "Descripcion", "")) else ""
                 tipo = row.Periodo if pd.notna(getattr(row, "Periodo", "")) else ""
+
+                # Alternar colores de fila
+                tag = "evenrow" if row_count % 2 == 0 else "oddrow"
                 self.tree.insert("", tk.END, values=(
                     row.get("COD", ""),
                     fecha_str,
                     row.get("Actividad", ""),
                     descripcion,
-                    monto,
+                    f"{monto:.2f}",
                     row.get("Trabajador", ""),
                     tipo
-                ))
+                ), tags=(tag,))
+
                 total += monto
+                if tipo == "Mensual":
+                    total_mensual += monto
+                else:
+                    total_diario += monto
+                row_count += 1
+
             except Exception as e:
                 print(f"Error al cargar fila: {row} → {e}")
 
-        self.label_gasto.configure(text=f"Total Jornal: S/ {total:,.1f}")
+        self.label_diario.configure(text=f"S/ {total_diario:,.2f}")
+        self.label_mensual.configure(text=f"S/ {total_mensual:,.2f}")
+        self.label_gasto.configure(text=f"S/ {total:,.2f}")

@@ -8,8 +8,40 @@ from tkinter import messagebox
 import pandas as pd
 import os
 import sys
+import subprocess
 
-from services.process import Pipelines 
+from services.process import Pipelines
+
+
+class ToolTip:
+    """Tooltip widget for Treeview cells."""
+    def __init__(self, widget):
+        self.widget = widget
+        self.tip_window = None
+        self.text = ""
+
+    def show(self, text, x, y):
+        if not text or self.tip_window:
+            return
+        self.text = text
+        self.tip_window = tw = tk.Toplevel(self.widget)
+        tw.wm_overrideredirect(True)
+        tw.wm_geometry(f"+{x}+{y}")
+
+        label = tk.Label(
+            tw, text=text, justify="left",
+            background="#FFFFD0", foreground="#333",
+            relief="solid", borderwidth=1,
+            font=("Segoe UI", 10),
+            wraplength=400,
+            padx=8, pady=5
+        )
+        label.pack()
+
+    def hide(self):
+        if self.tip_window:
+            self.tip_window.destroy()
+            self.tip_window = None
 
 class ResumenFrame(ctk.CTkFrame):
     def __init__(self, master, process : Pipelines):
@@ -24,125 +56,148 @@ class ResumenFrame(ctk.CTkFrame):
             self.datos = pd.DataFrame()
             self.detalle_datos = pd.DataFrame()
 
-        # Filtro Fecha inicio y Fecha fin
-        filtro_frame = ctk.CTkFrame(self)
-        filtro_frame.pack(pady=5, anchor="center")
+        # ===================== HEADER ===================== #
+        header_frame = ctk.CTkFrame(self, fg_color="#F8F9FA", corner_radius=0)
+        header_frame.pack(fill="x")
 
-        # Obtener primer día del mes actual
+        header_inner = ctk.CTkFrame(header_frame, fg_color="transparent")
+        header_inner.pack(fill="x", padx=25, pady=15)
+
+        ctk.CTkLabel(
+            header_inner,
+            text="Reporte Semanal",
+            font=("Segoe UI", 24, "bold"),
+            text_color="#1a1a2e"
+        ).pack(side="left")
+
+        # Filtro (derecha)
+        filtro_frame = ctk.CTkFrame(header_inner, fg_color="transparent")
+        filtro_frame.pack(side="right")
+
         hoy = datetime.today()
         first_day = hoy.replace(day=1)
 
-        ctk.CTkLabel(filtro_frame, text="Fecha Inicio:").pack(side="left", padx=(10, 5))
-        self.date_inicio = DateEntry(filtro_frame, date_pattern="yyyy-mm-dd")
-        self.date_inicio.set_date(first_day)  # Asignamos el primer día del mes
-        self.date_inicio.pack(side="left", padx=5, pady=10)
+        ctk.CTkLabel(filtro_frame, text="Desde:", font=("Segoe UI", 12), text_color="#555").pack(side="left", padx=(0, 5))
+        self.date_inicio = DateEntry(filtro_frame, date_pattern="yyyy-mm-dd", font=("Segoe UI", 10))
+        self.date_inicio.set_date(first_day)
+        self.date_inicio.pack(side="left", padx=(0, 12))
 
+        ctk.CTkLabel(filtro_frame, text="Hasta:", font=("Segoe UI", 12), text_color="#555").pack(side="left", padx=(0, 5))
+        self.date_fin = DateEntry(filtro_frame, date_pattern="yyyy-mm-dd", font=("Segoe UI", 10))
+        self.date_fin.pack(side="left", padx=(0, 12))
 
-        ctk.CTkLabel(filtro_frame, text="Fecha Fin:").pack(side="left", padx=(10, 5))
-        self.date_fin = DateEntry(filtro_frame, date_pattern="yyyy-mm-dd")
-        self.date_fin.pack(side="left", padx=5, pady=10)
+        ctk.CTkButton(
+            filtro_frame,
+            text="Filtrar",
+            command=self.aplicar_filtro_fechas,
+            width=90,
+            height=32,
+            font=("Segoe UI", 12, "bold"),
+            fg_color="#3EA5FF",
+            hover_color="#2196F3",
+            corner_radius=6
+        ).pack(side="left")
 
-        ctk.CTkButton(filtro_frame, text="Filtrar", command=self.aplicar_filtro_fechas).pack(side="left", padx=10, pady=10)
         # ===================== TOTALES ===================== #
-        frame_totales = ctk.CTkFrame(self, fg_color="white")
-        frame_totales.pack(anchor="w", padx=20, pady=5)
+        totales_frame = ctk.CTkFrame(self, fg_color="transparent")
+        totales_frame.pack(fill="x", padx=25, pady=(15, 10))
 
-        # Sub-frame para gasto
-        frame_gasto = ctk.CTkFrame(frame_totales, fg_color="#ff4d4f", corner_radius=10)
-        frame_gasto.pack(side="left", padx=(0, 15), ipadx=15, ipady=10)
+        # Card Gasto
+        self._create_total_card(totales_frame, "GASTOS", "gasto", "#DC3545", "#FFD6D9", "white")
+        # Card Jornal Diario
+        self._create_total_card(totales_frame, "J. DIARIO", "jornales_diario", "#1c39dd", "#C5CAF5", "white")
+        # Card Jornal Mensual
+        self._create_total_card(totales_frame, "J. MENSUAL", "jornales_mensual", "#1ca0dd", "#C5E8F5", "white")
+        # Card Abono
+        self._create_total_card(totales_frame, "ABONO", "abono", "#f1a643", "#FDE8C8", "#333")
+        # Card Enviado
+        self._create_total_card(totales_frame, "ENVIADO", "enviado", "#17a2b8", "#C5F0F5", "white")
+        # Card Ventas
+        self._create_total_card(totales_frame, "VENTAS", "venta", "#28a745", "#C8F5D0", "white")
 
-        self.label_gasto = ctk.CTkLabel(frame_gasto, text="Gasto Total: S/ 0.0", font=("Segoe UI", 12.5, "bold"), text_color="white")
-        self.label_gasto.pack()
-
-        # Sub-frame para jornales diarios
-        frame_jornales_diario = ctk.CTkFrame(frame_totales, fg_color="#1c39dd", corner_radius=10)
-        frame_jornales_diario.pack(side='left', padx=(0, 15), ipadx=15, ipady=10)
-
-        self.label_jornales_diario = ctk.CTkLabel(frame_jornales_diario, text="Jornal Diario: S/ 0.0", font=("Segoe UI", 12.5, "bold"), text_color="white")
-        self.label_jornales_diario.pack()
-
-        # Sub-frame para jornales mensuales
-        frame_jornales_mensual = ctk.CTkFrame(frame_totales, fg_color="#1ca0dd", corner_radius=10)
-        frame_jornales_mensual.pack(side='left', padx=(0, 15), ipadx=15, ipady=10)
-
-        self.label_jornales_mensual = ctk.CTkLabel(frame_jornales_mensual, text="Jornal Mensual: S/ 0.0", font=("Segoe UI", 12.5, "bold"), text_color="white")
-        self.label_jornales_mensual.pack()
-
-        # Sub-frame para abono
-        frame_abono = ctk.CTkFrame(frame_totales, fg_color="#f1a643", corner_radius=10)
-        frame_abono.pack(side='left', padx=(0, 15), ipadx=15, ipady=10)
-
-        self.label_abono = ctk.CTkLabel(frame_abono, text="Gasto Abono: S/ 0.0", font=("Segoe UI", 12.5, "bold"), text_color="#333")
-        self.label_abono.pack()
-
-        # Sub-frame para enviado
-        frame_enviado = ctk.CTkFrame(frame_totales, fg_color="#1cddb3", corner_radius=10)
-        frame_enviado.pack(side="left", padx=(0, 15), ipadx=15, ipady=10)
-
-        self.label_enviado = ctk.CTkLabel(frame_enviado, text="Total Enviado: S/ 0.0", font=("Segoe UI", 12.5, "bold"), text_color="#333")
-        self.label_enviado.pack()
-
-        # Sub-frame para venta de cacao
-        frame_venta = ctk.CTkFrame(frame_totales, fg_color="#1CB460", corner_radius=10)
-        frame_venta.pack(side="left", ipadx=15, ipady=10)
-
-        self.label_venta = ctk.CTkLabel(frame_venta, text="Ventas: S/ 0.0", font=("Segoe UI", 12.5, "bold"), text_color="#333")
-        self.label_venta.pack()
-
-
-        # Estilos de la tabla 
+        # ===================== TABLA ===================== #
         style = ttk.Style()
         style.theme_use("clam")
         style.configure("Treeview",
-                        font=("Segoe UI", 12),
-                        rowheight=32,
-                        background="#F9F9F9",
-                        fieldbackground="#F9F9F9",
-                        foreground="#333333",
-                        borderwidth=0)
+                        font=("Segoe UI", 11),
+                        rowheight=34,
+                        background="#FFFFFF",
+                        fieldbackground="#FFFFFF",
+                        foreground="#222222",
+                        borderwidth=1)
         style.configure("Treeview.Heading",
-                        font=("Segoe UI", 14, "bold"),
-                        background="#3EA5FF",
-                        foreground="#000000",
-                        relief="flat")
-        
-        # ===================== TABLA DETALLE ===================== #
-        # Frame contenedor para tabla y scrollbar
-        tabla_frame = tk.Frame(self)
-        tabla_frame.pack(fill="both", expand=True, padx=20, pady=(5, 0))
+                        font=("Segoe UI", 11, "bold"),
+                        background="#2C3E50",
+                        foreground="#FFFFFF",
+                        relief="flat",
+                        padding=(8, 6))
+        style.map("Treeview",
+                  background=[("selected", "#E3F2FD")],
+                  foreground=[("selected", "#1565C0")])
+
+        tabla_container = ctk.CTkFrame(self, fg_color="#FFFFFF", corner_radius=10)
+        tabla_container.pack(fill="both", expand=True, padx=25, pady=(5, 10))
+
+        tabla_frame = tk.Frame(tabla_container, bg="#FFFFFF")
+        tabla_frame.pack(fill="both", expand=True, padx=2, pady=2)
         # Scrollbar vertical
         scrollbar_y = ttk.Scrollbar(tabla_frame, orient="vertical")
-        scrollbar_y.pack(side="right", fill="y")
-        # Scrollbar horizontal
         scrollbar_x = ttk.Scrollbar(tabla_frame, orient="horizontal")
-        scrollbar_x.pack(side="bottom", fill="x")
-        
+
         # Tabla Detalle
-        self.tabla_detalle_columns  = ("Item", "Fecha", "Responsable", "Tipo", "Nombre", "Actividad", "Descripción", "Abono (S/.)" ,"Gasto (S/.)", "Jornal (S/.)" , "J. Mensual (S/.)","Enviado (S/.)", "Venta Cacao (S/.)")
-        self.width1 = [54, 95, 112, 88, 196, 130, 169, 140, 130, 130, 130, 130, 175]
-        self.tabla_detalle = ttk.Treeview(tabla_frame,
-                                          columns=self.tabla_detalle_columns,
-                                          show="headings",
-                                          height=8,
-                                          yscrollcommand=scrollbar_y.set,
-                                          xscrollcommand=scrollbar_x.set)
-        
+        self.tabla_detalle_columns = ("Item", "Fecha", "Responsable", "Tipo", "Nombre", "Actividad", "Descripción", "Abono (S/.)", "Gasto (S/.)", "Jornal (S/.)", "J. Mensual (S/.)", "Enviado (S/.)", "Venta Cacao (S/.)")
+        self.width1 = [50, 90, 110, 80, 150, 120, 160, 90, 90, 90, 95, 90, 110]
+
+        self.tabla_detalle = ttk.Treeview(
+            tabla_frame,
+            columns=self.tabla_detalle_columns,
+            show="headings",
+            height=10,
+            yscrollcommand=scrollbar_y.set,
+            xscrollcommand=scrollbar_x.set
+        )
+
         for i, col in enumerate(self.tabla_detalle_columns):
             self.tabla_detalle.heading(col, text=col)
             self.tabla_detalle.column(col, anchor=tk.CENTER, width=self.width1[i])
 
-        self.tabla_detalle.pack(side="left", fill="both", expand=True)
-        # Asociar scrollbars
+        # Grid layout for table
+        self.tabla_detalle.grid(row=0, column=0, sticky="nsew")
+        scrollbar_y.grid(row=0, column=1, sticky="ns")
+        scrollbar_x.grid(row=1, column=0, sticky="ew")
+
         scrollbar_y.config(command=self.tabla_detalle.yview)
         scrollbar_x.config(command=self.tabla_detalle.xview)
 
+        tabla_frame.grid_rowconfigure(0, weight=1)
+        tabla_frame.grid_columnconfigure(0, weight=1)
+
         # Colores alternos
-        self.tabla_detalle.tag_configure('evenrow', background='#f2f2f2')  # Gris claro
-        self.tabla_detalle.tag_configure('oddrow', background='white')      # Blanco
-        
-        # Botón exportar datos
-        self.boton_exportar = ctk.CTkButton(self, text="Exportar a Excel", command=self.exportar_a_excel)
-        self.boton_exportar.pack(pady=(5, 15))
+        self.tabla_detalle.tag_configure('evenrow', background='#F5F5F5')
+        self.tabla_detalle.tag_configure('oddrow', background='#FFFFFF')
+
+        # Tooltip for full description
+        self.tooltip = ToolTip(self.tabla_detalle)
+        self.full_descriptions = {}  # Store full descriptions by item id
+        self.tabla_detalle.bind("<Motion>", self.on_mouse_move)
+        self.tabla_detalle.bind("<Leave>", lambda e: self.tooltip.hide())
+
+        # ===================== FOOTER ===================== #
+        footer_frame = ctk.CTkFrame(self, fg_color="transparent")
+        footer_frame.pack(fill="x", padx=25, pady=(5, 15))
+
+        self.boton_exportar = ctk.CTkButton(
+            footer_frame,
+            text="Exportar a Excel",
+            command=self.exportar_a_excel,
+            width=150,
+            height=38,
+            font=("Segoe UI", 13, "bold"),
+            fg_color="#28a745",
+            hover_color="#1e7e34",
+            corner_radius=8
+        )
+        self.boton_exportar.pack(side="right")
         """
         # Tabla
         self.columns = ("Fecha Inicio", "Fecha Fin", "Gasto", "Jornal", "Envíos Dinero")
@@ -159,6 +214,47 @@ class ResumenFrame(ctk.CTkFrame):
         self.aplicar_filtro_fechas()
 
     # ========= FUNCIONES ========= #
+    def _truncate_text(self, text, max_length=30):
+        """Truncate text and add ellipsis if longer than max_length."""
+        text = str(text).replace("\n", " ").replace("\r", "")
+        if len(text) > max_length:
+            return text[:max_length] + "..."
+        return text
+
+    def on_mouse_move(self, event):
+        """Show tooltip when hovering over description column."""
+        self.tooltip.hide()
+        region = self.tabla_detalle.identify("region", event.x, event.y)
+        if region != "cell":
+            return
+
+        column = self.tabla_detalle.identify_column(event.x)
+        # Column #7 is "Descripción" (1-indexed)
+        if column != "#7":
+            return
+
+        item = self.tabla_detalle.identify_row(event.y)
+        if item and item in self.full_descriptions:
+            full_text = self.full_descriptions[item]
+            if full_text and len(str(full_text)) > 30:
+                x = event.x_root + 15
+                y = event.y_root + 10
+                self.tooltip.show(full_text, x, y)
+
+    def _create_total_card(self, parent, title, attr_name, bg_color, title_color, value_color):
+        """Helper to create a total card."""
+        frame = ctk.CTkFrame(parent, fg_color=bg_color, corner_radius=10)
+        frame.pack(side="left", padx=(0, 10))
+
+        inner = ctk.CTkFrame(frame, fg_color="transparent")
+        inner.pack(padx=15, pady=10)
+
+        ctk.CTkLabel(inner, text=title, font=("Segoe UI", 10, "bold"), text_color=title_color).pack(anchor="w")
+        label = ctk.CTkLabel(inner, text="S/ 0.0", font=("Segoe UI", 16, "bold"), text_color=value_color)
+        label.pack(anchor="w")
+
+        setattr(self, f"label_{attr_name}", label)
+
     def recargar_tabla(self):
         try:
             self.detalle_datos = self.process.getTransactions()
@@ -178,6 +274,9 @@ class ResumenFrame(ctk.CTkFrame):
         # Limpiar tabla antes de cargar
         for i in self.tabla_detalle.get_children():
             self.tabla_detalle.delete(i)
+
+        # Clear stored descriptions
+        self.full_descriptions = {}
 
         # Ordenando las filas ascendente por fecha
         if "Fecha" in datos.columns:
@@ -209,22 +308,29 @@ class ResumenFrame(ctk.CTkFrame):
             enviado = row.Enviado if pd.notna(getattr(row, "Enviado", "")) else 0.0
             venta = row.Venta if pd.notna(getattr(row, "Venta", "")) else 0.0
 
-            # Insertar en tabla
-            self.tabla_detalle.insert("", "end", values=(
+            # Truncate description for display
+            descripcion_truncada = self._truncate_text(descripcion, max_length=30)
+
+            # Insertar en tabla con colores alternos
+            tag = "evenrow" if idx % 2 == 0 else "oddrow"
+            item_id = self.tabla_detalle.insert("", "end", values=(
                 idx,
                 fecha_str,
                 responsable,
                 tipo,
                 nombre,
                 actividad,
-                descripcion,
+                descripcion_truncada,
                 f"{gastoAbono:.2f}" if gastoAbono else "",
                 f"{monto:.2f}" if monto else "",
                 f"{jornalDiario:.2f}" if jornalDiario else "",
                 f"{jornalMensual:.2f}" if jornalMensual else "",
                 f"{enviado:.2f}" if enviado else "",
                 f"{venta:.2f}" if venta else ""
-            ))
+            ), tags=(tag,))
+
+            # Store full description for tooltip
+            self.full_descriptions[item_id] = str(descripcion).replace("\r", "")
 
             # Acumular totales
             total_gastos += float(monto)
@@ -235,12 +341,12 @@ class ResumenFrame(ctk.CTkFrame):
             total_venta += float(venta)
 
         # Actualizar labels de totales
-        self.label_gasto.configure(text=f"Gasto Total: S/{total_gastos:,.1f}")
-        self.label_jornales_diario.configure(text=f"Jornal Diario: S/{total_jornal_diario:,.1f}")
-        self.label_jornales_mensual.configure(text=f"Jornal Mensual: S/{total_jornal_mensual:,.1f}")
-        self.label_enviado.configure(text=f"Total Enviado: S/{total_enviado:,.1f}")
-        self.label_abono.configure(text=f"Gasto Abono: S/{total_abono:,.1f}")
-        self.label_venta.configure(text=f"Ventas: S/{total_venta:,.1f}")
+        self.label_gasto.configure(text=f"S/ {total_gastos:,.2f}")
+        self.label_jornales_diario.configure(text=f"S/ {total_jornal_diario:,.2f}")
+        self.label_jornales_mensual.configure(text=f"S/ {total_jornal_mensual:,.2f}")
+        self.label_enviado.configure(text=f"S/ {total_enviado:,.2f}")
+        self.label_abono.configure(text=f"S/ {total_abono:,.2f}")
+        self.label_venta.configure(text=f"S/ {total_venta:,.2f}")
 
     def aplicar_filtro_fechas(self):
         try:
@@ -278,8 +384,17 @@ class ResumenFrame(ctk.CTkFrame):
                 export_data = self.process.addTotal(self.datos_filtrados)
                 self.process.exportSummaryExcelFormatted(export_data, file_path, self.tabla_detalle_columns)
                 #export_data.to_excel(file_path, index=False)
-                messagebox.showinfo("Éxito", f"Exportado exitosamente a:\n{file_path}")
                 print(f"Exportado exitosamente a {file_path}")
+
+                # Ask user if they want to open the file
+                if messagebox.askyesno("Éxito", f"Exportado exitosamente.\n\n¿Desea abrir el archivo?"):
+                    # Open file with default application
+                    if sys.platform == "win32":
+                        os.startfile(file_path)
+                    elif sys.platform == "darwin":  # macOS
+                        subprocess.run(["open", file_path])
+                    else:  # Linux
+                        subprocess.run(["xdg-open", file_path])
             except PermissionError:
                 messagebox.showerror("Error", "No se pudo guardar el archivo. Verifica permisos o cierra el archivo si está abierto.")
             except Exception as e:

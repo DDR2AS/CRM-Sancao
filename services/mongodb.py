@@ -22,6 +22,7 @@ class DBMongo:
             self.client = MongoClient(self.srv, serverSelectionTimeoutMS=5000)
             self.client.admin.command("ping") 
             self.eiBusiness = self.client["eiBusiness"]
+            self.eiAccounts = self.client["eiAccounts"]
             end_time = time.time()
             print(f"Succesfull connection with DB-Sancao {end_time -start_time:.4f} s" )
         except Exception as e:
@@ -30,30 +31,70 @@ class DBMongo:
 
     def getGastos(self):
 
-        expenses = self.eiBusiness["expenses"].find({
-        },
-        {
-            "_id" : 0,
-            "COD" : "$e_code",
-            "Fecha" : "$datepurchasedAt",
-            "Tipo" : "$type",
-            "Producto" : "$product",
-            "Descripcion" : "$description",
-            "Monto Total" : "$amount",
-            "Cantidad": "$quantity",
-            "Actividad" : "$activity",
-            "fileDriveUrl" : 1,
-            "Responsable" : "$createdBy"
-        }
-        ).sort({"createdAt" : -1})
-        df_expenses = pd.DataFrame(list(expenses))
+        pipeline = [
+            {
+                "$lookup": {
+                    "from": "attachments",
+                    "localField": "attachmentId",
+                    "foreignField": "_id",
+                    "as": "attachment"
+                }
+            },
+            {
+                "$addFields": {
+                    "attachmentUrl": {
+                        "$ifNull": [
+                            {"$arrayElemAt": ["$attachment.url", 0]},
+                            "$fileDriveUrl"
+                        ]
+                    }
+                }
+            },
+            {
+                "$project": {
+                    "_id": 0,
+                    "COD": "$e_code",
+                    "Fecha": "$datepurchasedAt",
+                    "Tipo": "$type",
+                    "Producto": "$product",
+                    "Descripcion": "$description",
+                    "Monto Total": "$amount",
+                    "Cantidad": "$quantity",
+                    "Actividad": "$activity",
+                    "Responsable": "$createdBy",
+                    "Url": "$attachmentUrl"
+                }
+            },
+            {"$sort": {"Fecha": -1}}
+        ]
+
+        result = self.eiBusiness["expenses"].aggregate(pipeline)
+        df_expenses = pd.DataFrame(list(result))
+
+        # Handle empty DataFrame - ensure columns exist
+        expected_columns = ["COD", "Fecha", "Tipo", "Producto", "Descripcion", "Monto Total", "Cantidad", "Actividad", "Responsable", "Url"]
+        if df_expenses.empty:
+            df_expenses = pd.DataFrame(columns=expected_columns)
+
         df_expenses["Fecha"] = pd.to_datetime(df_expenses["Fecha"], errors="coerce")
-        df_expenses["Monto Total"] = pd.to_numeric(df_expenses["Monto Total"], errors="coerce").fillna(0.0)
-        df_expenses["Cantidad"] = pd.to_numeric(df_expenses["Cantidad"], errors="coerce").fillna(0.0)
-        df_expenses['fileDriveUrl'] = df_expenses['fileDriveUrl'].fillna('') 
+        df_expenses["Monto Total"] = pd.to_numeric(df_expenses["Monto Total"], errors="coerce")
+        df_expenses["Cantidad"] = pd.to_numeric(df_expenses["Cantidad"], errors="coerce")
         return df_expenses
     
     def getJornales(self):
+        # Obteniendo los usuarios registrados
+        users = self.eiAccounts["res_users"].find(
+            {
+                "role": { "$in": ["worker", "supervisor_pro"] }
+            },
+            {
+                "_id" : 0,
+                "fullname" : "$name",
+                "u_code" : 1
+            }
+        )
+        df_users = pd.DataFrame(list(users))
+
         jornals = self.eiBusiness["planilla_jornales"].find(
             {},
             {
@@ -61,6 +102,7 @@ class DBMongo:
                 "Fecha Trabajo" : "$date_journal",
                 "Trabajador" : "$fullname",
                 "Descripcion" : "$description",
+                "u_code" : "$u_code_worker",
                 "Monto Total": "$amount",
                 "Actividad" : "$activity",
                 "COD" : "$j_code",
@@ -71,27 +113,69 @@ class DBMongo:
             ).sort({"Fecha": -1})
         
         df_journals = pd.DataFrame(list(jornals))
-        df_journals["Fecha Trabajo"] = pd.to_datetime(df_journals["Fecha Trabajo"], errors="coerce")
-        df_journals["Monto Total"] = pd.to_numeric(df_journals["Monto Total"], errors="coerce").fillna(0.0)
-        return df_journals
+
+        # Handle empty DataFrame - ensure columns exist
+        expected_columns = ["Fecha Trabajo", "Trabajador", "Descripcion", "u_code", "Monto Total", "Actividad", "COD", "Tipo", "Periodo", "Responsable"]
+        if df_journals.empty:
+            df_journals = pd.DataFrame(columns=expected_columns)
+
+        # Concatenando con nueva data
+        df_merged = df_journals.merge(df_users, on='u_code', how='left')
+        if 'fullname' in df_merged.columns:
+            df_merged['Trabajador'] = df_merged['Trabajador'].fillna(df_merged['fullname'])
+            df_merged = df_merged.drop(columns=['fullname'], errors='ignore')
+        if 'u_code' in df_merged.columns:
+            df_merged = df_merged.drop(columns=['u_code'], errors='ignore')
+
+        df_merged["Fecha Trabajo"] = pd.to_datetime(df_merged["Fecha Trabajo"], errors="coerce")
+        df_merged["Monto Total"] = pd.to_numeric(df_merged["Monto Total"], errors="coerce").fillna(0.0)
+        return df_merged
     
-    def getSales(self): 
-        sales = self.eiBusiness["sales"].find(
-            {},
+    def getSales(self):
+        pipeline = [
             {
-                "_id" : 0,
-                "Fecha Venta" : "$saleAt",
-                "Producto" : "$product",
-                "Peso" : "$weight",
-                "PrecioxKg" : "$price_by_kg",
-                "Monto" : "$amount",
-                "COD" : "$v_code",
-                "fileDriveUrl": 1,
-                "Tipo" : "$type",
-                "Responsable" : "$createdBy"
-            }
-        ).sort({"Fecha Venta" : -1})
-        df_sales = pd.DataFrame(list(sales))
+                "$lookup": {
+                    "from": "attachments",
+                    "localField": "attachmentId",
+                    "foreignField": "_id",
+                    "as": "attachment"
+                }
+            },
+            {
+                "$addFields": {
+                    "attachmentUrl": {
+                        "$ifNull": [
+                            {"$arrayElemAt": ["$attachment.url", 0]},
+                            "$fileDriveUrl"
+                        ]
+                    }
+                }
+            },
+            {
+                "$project": {
+                    "_id": 0,
+                    "Fecha Venta": "$saleAt",
+                    "Producto": "$product",
+                    "Peso": "$weight",
+                    "PrecioxKg": "$price_by_kg",
+                    "Monto": "$amount",
+                    "COD": "$v_code",
+                    "Tipo": "$type",
+                    "Responsable": "$createdBy",
+                    "Url": "$attachmentUrl"
+                }
+            },
+            {"$sort": {"Fecha Venta": -1}}
+        ]
+
+        result = self.eiBusiness["sales"].aggregate(pipeline)
+        df_sales = pd.DataFrame(list(result))
+
+        # Handle empty DataFrame - ensure columns exist
+        expected_columns = ["Fecha Venta", "Producto", "Peso", "PrecioxKg", "Monto", "COD", "Tipo", "Responsable", "Url"]
+        if df_sales.empty:
+            df_sales = pd.DataFrame(columns=expected_columns)
+
         df_sales["Fecha Venta"] = pd.to_datetime(df_sales["Fecha Venta"], errors="coerce")
         return df_sales
     
@@ -201,6 +285,12 @@ class DBMongo:
         }
         ).sort({"Fecha" : -1})
         df_sendMoney = pd.DataFrame(list(sendMoney))
+
+        # Handle empty DataFrame - ensure columns exist
+        expected_columns = ["Tipo", "Monto Total", "COD", "Fecha", "Descripcion", "Url", "Responsable"]
+        if df_sendMoney.empty:
+            df_sendMoney = pd.DataFrame(columns=expected_columns)
+
         df_sendMoney["Fecha"] = pd.to_datetime(df_sendMoney["Fecha"], errors="coerce")
         df_sendMoney["Monto Total"] = pd.to_numeric(df_sendMoney["Monto Total"], errors="coerce").fillna(0.0)
         return df_sendMoney
@@ -214,8 +304,8 @@ class DBMongo:
             "Descripción": "description",
             "Monto Total": "amount",
             "Cantidad": "quantity",
-            "Actividad": "activity",
-            "Url": "fileDriveUrl"
+            "Actividad": "activity"
+            # Url/fileDriveUrl deprecated - attachments are now stored in attachments collection
         }
         update_doc = {}
         for key, value in data.items():
@@ -375,7 +465,7 @@ class DBMongo:
         )
         return result
     
-    def delete_Jornal(self, j_code: str): 
+    def delete_Jornal(self, j_code: str):
         try:
             result = self.eiBusiness["planilla_jornales"].delete_one({"j_code": j_code})
             if result.deleted_count > 0:
@@ -386,4 +476,91 @@ class DBMongo:
                 return False
         except Exception as e:
             print("Error en eliminar registro:", e)
+            return False
+
+    # ==================== ATTACHMENTS ====================
+
+    def create_attachment(self, attachment_data: dict) -> ObjectId:
+        """
+        Create a new attachment record.
+
+        Args:
+            attachment_data: dict with url, fileGsUrl, mimeType, fileSize, recordType, recordCode
+
+        Returns:
+            ObjectId of the created attachment
+        """
+        now = datetime.now(PERU_TZ)
+        attachment_data["createdAt"] = now
+        attachment_data["updatedAt"] = now
+
+        result = self.eiBusiness["attachments"].insert_one(attachment_data)
+        print(f"Attachment created: {result.inserted_id}")
+        return result.inserted_id
+
+    def update_expense_attachment(self, e_code: str, attachment_id: ObjectId):
+        """
+        Update expense record with attachmentId.
+
+        Args:
+            e_code: Expense code (e.g., "E00035")
+            attachment_id: ObjectId of the attachment
+        """
+        result = self.eiBusiness["expenses"].update_one(
+            {"e_code": e_code},
+            {"$set": {"attachmentId": attachment_id, "updatedAt": datetime.now(PERU_TZ)}}
+        )
+        print(f"Expense {e_code} updated with attachmentId: {attachment_id}")
+        return result
+
+    def get_attachment_by_id(self, attachment_id: ObjectId) -> dict:
+        """Get attachment by ID."""
+        return self.eiBusiness["attachments"].find_one({"_id": attachment_id})
+
+    def update_attachment(self, attachment_id: ObjectId, attachment_data: dict):
+        """
+        Update an existing attachment record.
+
+        Args:
+            attachment_id: ObjectId of the attachment to update
+            attachment_data: dict with url, fileGsUrl, mimeType, fileSize, etc.
+        """
+        attachment_data["updatedAt"] = datetime.now(PERU_TZ)
+        result = self.eiBusiness["attachments"].update_one(
+            {"_id": attachment_id},
+            {"$set": attachment_data}
+        )
+        print(f"Attachment {attachment_id} updated")
+        return result
+
+    def get_expense_by_code(self, e_code: str) -> dict:
+        """Get expense by code."""
+        return self.eiBusiness["expenses"].find_one({"e_code": e_code})
+
+    def get_sale_by_code(self, v_code: str) -> dict:
+        """Get sale by code."""
+        return self.eiBusiness["sales"].find_one({"v_code": v_code})
+
+    def update_sale_attachment(self, v_code: str, attachment_id: ObjectId):
+        """
+        Update sale record with attachmentId.
+
+        Args:
+            v_code: Sale code (e.g., "V00035")
+            attachment_id: ObjectId of the attachment
+        """
+        result = self.eiBusiness["sales"].update_one(
+            {"v_code": v_code},
+            {"$set": {"attachmentId": attachment_id, "updatedAt": datetime.now(PERU_TZ)}}
+        )
+        print(f"Sale {v_code} updated with attachmentId: {attachment_id}")
+        return result
+
+    def delete_attachment(self, attachment_id: ObjectId) -> bool:
+        """Delete attachment by ID."""
+        try:
+            result = self.eiBusiness["attachments"].delete_one({"_id": attachment_id})
+            return result.deleted_count > 0
+        except Exception as e:
+            print(f"Error deleting attachment: {e}")
             return False

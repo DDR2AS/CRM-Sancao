@@ -14,3 +14,4 @@ app.spec
 icon.ico
 *.csv
 notebooks
+*.json

@@ -1,14 +1,18 @@
 from datetime import datetime, timedelta, timezone
 from tkinter import filedialog, messagebox, ttk
+from services.google_storage import gcpService
 from tkcalendar import DateEntry
+from dotenv import load_dotenv
 import customtkinter as ctk
 import tkinter as tk
 import pandas as pd
 import webbrowser
 import threading
-import shutil 
+import shutil
 import base64
 import os
+
+load_dotenv()
 
 class EnviosFrame(ctk.CTkFrame):
     def __init__(self, master, process):
@@ -117,48 +121,128 @@ class EnviosFrame(ctk.CTkFrame):
     def abrir_ventana_envio(self):
         ventana = ctk.CTkToplevel(self)
         ventana.title("Nuevo Envío")
-        ventana.geometry("500x570")
+        self.archivo_nuevo = None
 
         # Centrar ventana
         ventana.update_idletasks()
-        w, h = 500, 570
+        w, h = 450, 500
         x = (ventana.winfo_screenwidth() // 2) - (w // 2)
         y = (ventana.winfo_screenheight() // 2) - (h // 2)
         ventana.geometry(f"{w}x{h}+{x}+{y}")
-        ventana.transient(self)     
-        ventana.grab_set()       
+        ventana.transient(self)
+        ventana.grab_set()
         ventana.focus_force()
 
-        contenido = ctk.CTkFrame(ventana)
-        contenido.pack(expand=True, fill="both", padx=40, pady=20)
+        # --- Header con color ---
+        header_bg = ctk.CTkFrame(ventana, fg_color="#17a2b8", corner_radius=0)
+        header_bg.pack(fill="x")
+
+        header_inner = ctk.CTkFrame(header_bg, fg_color="transparent")
+        header_inner.pack(padx=20, pady=15)
+
+        ctk.CTkLabel(
+            header_inner,
+            text="Nuevo Envío de Dinero",
+            font=("Segoe UI", 18, "bold"),
+            text_color="#FFFFFF"
+        ).pack(anchor="w")
+
+        ctk.CTkLabel(
+            header_inner,
+            text="Registrar transferencia",
+            font=("Segoe UI", 12),
+            text_color="#D1ECF1"
+        ).pack(anchor="w")
+
+        # --- Main container ---
+        main_frame = ctk.CTkFrame(ventana, fg_color="transparent")
+        main_frame.pack(fill="both", expand=True, padx=25, pady=15)
+
+        # --- Form frame ---
+        form_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        form_frame.pack(fill="both", expand=True)
 
         # Fecha
-        ctk.CTkLabel(contenido, text="Fecha", font=("Arial", 14)).pack(pady=(10, 5))
-        entry_fecha = DateEntry(contenido, width=20)
-        entry_fecha.pack(pady=(0, 10))
+        ctk.CTkLabel(form_frame, text="Fecha", font=("Segoe UI", 14, "bold"), text_color="#222222").grid(row=0, column=0, padx=(0, 12), pady=8, sticky="w")
+        entry_fecha = DateEntry(form_frame, width=18, font=("Segoe UI", 11))
+        entry_fecha.grid(row=0, column=1, pady=8, sticky="w")
 
         # Monto
-        ctk.CTkLabel(contenido, text="Monto (*)", font=("Arial", 14)).pack(pady=(10, 5))
-        entry_monto = ctk.CTkEntry(contenido, width=250, height=35)
-        entry_monto.pack(pady=(0, 10))
+        ctk.CTkLabel(form_frame, text="Monto (S/.)", font=("Segoe UI", 14, "bold"), text_color="#222222").grid(row=1, column=0, padx=(0, 12), pady=8, sticky="w")
+        entry_monto = ctk.CTkEntry(form_frame, width=200, height=36, font=("Segoe UI", 14), placeholder_text="Ej: 500.00")
+        entry_monto.grid(row=1, column=1, pady=8, sticky="w")
 
         # Descripción
-        ctk.CTkLabel(contenido, text="Descripción (*)", font=("Arial", 14)).pack(pady=(10, 5))
-        textbox_descripcion = ctk.CTkTextbox(contenido, width=350, height=120)
-        textbox_descripcion.pack(pady=(0, 15))
+        ctk.CTkLabel(form_frame, text="Descripción", font=("Segoe UI", 14, "bold"), text_color="#222222").grid(row=2, column=0, padx=(0, 12), pady=8, sticky="nw")
+        textbox_descripcion = ctk.CTkTextbox(form_frame, width=250, height=100, font=("Segoe UI", 13))
+        textbox_descripcion.grid(row=2, column=1, pady=8, sticky="w")
 
-        # Archivo
-        ctk.CTkLabel(contenido, text="Archivo (opcional)", font=("Arial", 14)).pack(pady=(5, 5))
+        # --- File upload section ---
+        file_frame = ctk.CTkFrame(main_frame, fg_color="#EBEBEB", corner_radius=8)
+        file_frame.pack(fill="x", pady=(10, 5))
+
+        file_inner = ctk.CTkFrame(file_frame, fg_color="transparent")
+        file_inner.pack(padx=12, pady=10)
+
         file_path_var = tk.StringVar()
+        status_label = ctk.CTkLabel(file_inner, text="Comprobante (opcional)", font=("Segoe UI", 13, "bold"), text_color="#333333")
+        status_label.pack(side="left", padx=(0, 10))
+
+        boton_archivo = ctk.CTkButton(
+            file_inner,
+            text="Seleccionar",
+            width=100,
+            height=32,
+            font=("Segoe UI", 13),
+            fg_color="#3EA5FF",
+            hover_color="#2196F3"
+        )
+        boton_archivo.pack(side="left", padx=(0, 8))
+
+        file_name_label = ctk.CTkLabel(file_inner, text="", font=("Segoe UI", 11), text_color="#666666")
+        file_name_label.pack(side="left")
 
         def seleccionar_archivo():
-            archivo = filedialog.askopenfilename(filetypes=[("Todos los archivos", "*.*")])
+            archivo = filedialog.askopenfilename(
+                parent=ventana,
+                filetypes=[
+                    ("Imagenes", "*.jpg *.jpeg *.png *.gif *.webp *.bmp"),
+                    ("PDF", "*.pdf"),
+                    ("Todos los archivos", "*.*")
+                ]
+            )
             if archivo:
                 file_path_var.set(archivo)
-                boton_archivo.configure(text=os.path.basename(archivo))
+                file_name_label.configure(text=os.path.basename(archivo)[:25] + "..." if len(os.path.basename(archivo)) > 25 else os.path.basename(archivo))
 
-        boton_archivo = ctk.CTkButton(contenido, text="Seleccionar archivo", command=seleccionar_archivo)
-        boton_archivo.pack(pady=(0, 20))
+        boton_archivo.configure(command=seleccionar_archivo)
+
+        # --- Button frame ---
+        button_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        button_frame.pack(fill="x", pady=(15, 0))
+
+        btn_cancelar = ctk.CTkButton(
+            button_frame,
+            text="Cancelar",
+            fg_color="#6C757D",
+            hover_color="#5A6268",
+            width=110,
+            height=38,
+            font=("Segoe UI", 14, "bold"),
+            command=ventana.destroy
+        )
+        btn_cancelar.pack(side="left")
+
+        btn_guardar = ctk.CTkButton(
+            button_frame,
+            text="Guardar Envío",
+            fg_color="#28a745",
+            hover_color="#1e7e34",
+            width=140,
+            height=38,
+            font=("Segoe UI", 14, "bold")
+        )
+        btn_guardar.pack(side="right")
 
         def guardar():
             try:
@@ -167,49 +251,81 @@ class EnviosFrame(ctk.CTkFrame):
                 sentAt_with_time = datetime.combine(sentAt, datetime.now().time()).replace(tzinfo=tz)
                 created_at = datetime.now(tz=tz).isoformat(timespec="milliseconds")
 
-                monto = float(entry_monto.get())
+                monto_str = entry_monto.get().strip()
+                if not monto_str:
+                    raise ValueError("El monto es requerido.")
+                monto = float(monto_str)
+
                 descripcion = textbox_descripcion.get("1.0", "end").strip()
                 if not descripcion:
                     raise ValueError("La descripción no puede estar vacía.")
 
-                archivo_info = None
-                ruta_archivo = file_path_var.get()
-                if ruta_archivo:
-                    with open(ruta_archivo, "rb") as f:
-                        archivo_info = {
-                            "nombre": os.path.basename(ruta_archivo),
-                            "base64": base64.b64encode(f.read()).decode("utf-8"),
-                            "tipo": os.path.splitext(ruta_archivo)[-1]
+                # Disable buttons while saving
+                btn_guardar.configure(state="disabled")
+                btn_cancelar.configure(state="disabled")
+                status_label.configure(text="Guardando...")
+
+                def proceso_guardado():
+                    try:
+                        archivo_info = None
+                        attachment_url = ""
+                        ruta_archivo = file_path_var.get()
+
+                        # Upload to GCS if file selected
+                        if ruta_archivo:
+                            try:
+                                gcs = gcpService(credentials_path=os.getenv("GCS_CREDENTIALS_PATH"))
+                                bucket_name = os.getenv("GCS_BUCKET_NAME")
+                                resultado = gcs.upload_file(
+                                    bucket_name=bucket_name,
+                                    local_path=ruta_archivo,
+                                    folder_prefix="images-vouchers"
+                                )
+                                attachment_url = resultado.get("url", "")
+
+                                # Store attachment data for later linking
+                                self.archivo_nuevo = {
+                                    "url": resultado.get("url"),
+                                    "fileGsUrl": resultado.get("fileGsUrl"),
+                                    "mimeType": resultado.get("mimeType"),
+                                    "fileSize": resultado.get("fileSize"),
+                                    "recordType": "envio"
+                                }
+                            except Exception as e:
+                                print(f"Error uploading to GCS: {e}")
+
+                        data = {
+                            "type": "Efectivo",
+                            "amount": monto,
+                            "description": descripcion,
+                            "sentAt": sentAt_with_time.strftime("%Y-%m-%d"),
+                            "createdBy": "Draft",
+                            "month": datetime.now().strftime("%Y%m"),
+                            "createdAt": created_at,
+                            "fileDriveUrl": attachment_url
                         }
 
-                data = {
-                    "type" : "Efectivo",
-                    "amount": monto,
-                    "description": descripcion,
-                    "sentAt": sentAt_with_time.strftime("%Y-%m-%d"),
-                    "createdBy" : "Draft",
-                    "month" : datetime.now().strftime("%Y%m"),
-                    "createdAt": created_at,
-                }
+                        self.process.postSentMoney(data, archivo_info)
 
-                self.process.postSentMoney(data, archivo_info)
-                ventana.attributes("-topmost", False)
-                messagebox.showinfo("Éxito", "Envío guardado correctamente", parent=ventana)
-                ventana.destroy()
-                self.recargar_tabla()
-                if archivo_info:
-                    self.master.after(10000, self.recargar_tabla)
+                        ventana.after(0, lambda: ventana.attributes("-topmost", False))
+                        ventana.after(0, lambda: messagebox.showinfo("Éxito", "Envío guardado correctamente", parent=ventana))
+                        ventana.after(0, ventana.destroy)
+                        ventana.after(0, self.recargar_tabla)
+
+                    except Exception as e:
+                        ventana.after(0, lambda: btn_guardar.configure(state="normal"))
+                        ventana.after(0, lambda: btn_cancelar.configure(state="normal"))
+                        ventana.after(0, lambda: status_label.configure(text=f"Error: {str(e)[:30]}"))
+                        print(f"Error guardando envío: {e}")
+
+                threading.Thread(target=proceso_guardado, daemon=True).start()
 
             except ValueError as e:
-                ventana.attributes("-topmost", False)
                 messagebox.showerror("Error", str(e), parent=ventana)
-                ventana.attributes("-topmost", True)
             except Exception as e:
-                ventana.attributes("-topmost", False)
                 messagebox.showerror("Error", f"No se pudo guardar: {e}", parent=ventana)
-                ventana.attributes("-topmost", True)
 
-        ctk.CTkButton(contenido, text="Guardar", fg_color="green", hover_color="#006400", command=guardar).pack(pady=(10, 5))
+        btn_guardar.configure(command=guardar)
 
     # ========= FUNCIONES ========= #
     def mostrar_ancho_columnas(self):
@@ -312,105 +428,227 @@ class EnviosFrame(ctk.CTkFrame):
     
     def open_edit_window(self, item_id, values):
         edit_window = ctk.CTkToplevel(self)
-        edit_window.title("Editar Venta")
-        edit_window.geometry("350x350")
+        edit_window.title("Editar Envío")
         self.archivo_subido = None
+
         # --- Centrar ventana ---
         edit_window.update_idletasks()
-        width, height = 380, 350
+        width, height = 420, 450
         x = (edit_window.winfo_screenwidth() // 2) - (width // 2)
         y = (edit_window.winfo_screenheight() // 2) - (height // 2)
         edit_window.geometry(f"{width}x{height}+{x}+{y}")
 
+        # --- Header con color ---
+        header_bg = ctk.CTkFrame(edit_window, fg_color="#17a2b8", corner_radius=0)
+        header_bg.pack(fill="x")
+
+        header_inner = ctk.CTkFrame(header_bg, fg_color="transparent")
+        header_inner.pack(padx=20, pady=15)
+
+        ctk.CTkLabel(
+            header_inner,
+            text="Editar Envío",
+            font=("Segoe UI", 18, "bold"),
+            text_color="#FFFFFF"
+        ).pack(anchor="w")
+
+        ctk.CTkLabel(
+            header_inner,
+            text=f"Código: {values[0]}",
+            font=("Segoe UI", 12),
+            text_color="#D1ECF1"
+        ).pack(anchor="w")
+
+        # --- Main container ---
+        main_frame = ctk.CTkFrame(edit_window, fg_color="transparent")
+        main_frame.pack(fill="both", expand=True, padx=20, pady=15)
+
+        # --- Form frame ---
+        form_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        form_frame.pack(fill="both", expand=True)
+
         entries = {}
+        row_idx = 0
         for i, col in enumerate(self.columns):
-            label = ctk.CTkLabel(edit_window, text=col)
-            label.grid(row=i, column=0, padx=10, pady=5, sticky="e")
+            # Skip COD in form since it's in header
+            if col == "COD":
+                entry = ctk.CTkEntry(form_frame, width=240, fg_color="#D0D0D0", text_color="#444444")
+                entry.insert(0, values[i])
+                entry.configure(state="disabled")
+                entries[col] = entry
+                continue
 
-            entry = ctk.CTkEntry(edit_window, width=250)
-            entry.insert(0, values[i])
-            entry.grid(row=i, column=1, padx=10, pady=5, sticky="w")
-            entries[col] = entry
+            label = ctk.CTkLabel(form_frame, text=col, font=("Segoe UI", 14, "bold"), text_color="#222222", anchor="w")
+            label.grid(row=row_idx, column=0, padx=(0, 12), pady=6, sticky="w")
 
-        # --- Botones de acción ---
-        button_frame = ctk.CTkFrame(edit_window, fg_color="transparent")
-        button_frame.grid(row=len(self.columns)+1, column=0, columnspan=2, pady=20)
+            if col == "Descripción":
+                text_widget = ctk.CTkTextbox(form_frame, width=240, height=60, font=("Segoe UI", 13))
+                text_widget.grid(row=row_idx, column=1, pady=6, sticky="w")
+                text_widget.insert("1.0", values[i] if values[i] else "")
+                entries[col] = text_widget
+            else:
+                entry = ctk.CTkEntry(form_frame, width=240, font=("Segoe UI", 14), text_color="#111111")
+                entry.insert(0, values[i] if values[i] else "")
+                entry.grid(row=row_idx, column=1, pady=6, sticky="w")
+                entries[col] = entry
 
-        btn_guardar = ctk.CTkButton(button_frame, text="Guardar", fg_color="#4CAF50")
-        btn_guardar.pack(side="left", padx=10)
-        btn_eliminar = ctk.CTkButton(button_frame, text="Eliminar", fg_color="#E53935")
-        btn_eliminar.pack(side="left", padx=10)
+            row_idx += 1
+
+        # --- File upload section ---
+        file_frame = ctk.CTkFrame(main_frame, fg_color="#EBEBEB", corner_radius=8)
+        file_frame.pack(fill="x", pady=(5, 3))
+
+        file_inner = ctk.CTkFrame(file_frame, fg_color="transparent")
+        file_inner.pack(padx=12, pady=8)
+
+        file_path_var = tk.StringVar()
+        status_label = ctk.CTkLabel(file_inner, text="Comprobante", font=("Segoe UI", 13, "bold"), text_color="#333333")
+        status_label.pack(side="left", padx=(0, 10))
+
+        boton_archivo = ctk.CTkButton(
+            file_inner,
+            text="Subir",
+            width=80,
+            height=30,
+            font=("Segoe UI", 13),
+            fg_color="#3EA5FF",
+            hover_color="#2196F3"
+        )
+        boton_archivo.pack(side="left", padx=(0, 8))
+
+        # Get current URL from values
+        current_url = values[4] if len(values) > 4 else ""
+
+        def abrir_preview():
+            url = entries["Url"].get().strip() if "Url" in entries else current_url
+            if url and url.startswith("http"):
+                webbrowser.open(url)
+            else:
+                messagebox.showinfo("Sin comprobante", "No hay comprobante adjunto")
+
+        btn_preview = ctk.CTkButton(
+            file_inner,
+            text="Ver",
+            width=60,
+            height=30,
+            font=("Segoe UI", 13),
+            fg_color="#6C757D",
+            hover_color="#5A6268",
+            command=abrir_preview
+        )
+        btn_preview.pack(side="left")
+
+        # --- Button frame ---
+        button_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        button_frame.pack(fill="x", pady=(10, 0))
+
+        btn_eliminar = ctk.CTkButton(
+            button_frame,
+            text="Eliminar",
+            fg_color="#E53935",
+            hover_color="#C62828",
+            width=110,
+            height=36,
+            font=("Segoe UI", 14, "bold")
+        )
+        btn_eliminar.pack(side="left")
+
+        btn_guardar = ctk.CTkButton(
+            button_frame,
+            text="Guardar cambios",
+            fg_color="#4CAF50",
+            hover_color="#388E3C",
+            width=130,
+            height=36,
+            font=("Segoe UI", 14, "bold")
+        )
+        btn_guardar.pack(side="right")
 
         # --- Funciones Guardar / Eliminar ---
         def save_changes():
-            new_values = [entries[col].get() for col in self.columns]
-            values = dict(zip(self.columns, new_values))
-            # Agregar fileDriveId y fileDriveUrl al diccionario
+            new_values = []
+            for col in self.columns:
+                widget = entries[col]
+                if isinstance(widget, ctk.CTkEntry):
+                    new_values.append(widget.get())
+                elif isinstance(widget, ctk.CTkTextbox):
+                    new_values.append(widget.get("1.0", "end").strip())
+                else:
+                    new_values.append(None)
+
+            values_dict = dict(zip(self.columns, new_values))
+            # Remove Url from update if using attachments
             if self.archivo_subido:
-                values["fileDriveId"] = self.archivo_subido.get("fileDriveId", "")
+                values_dict["fileDriveUrl"] = self.archivo_subido.get("url", "")
 
             self.process.updateSendMoney(
                 s_code=new_values[0],
-                data=values
+                data=values_dict
             )
             self.tree.item(item_id, values=new_values)
-            self.archivo_subido = {"fileDriveId": "", "fileDriveUrl": ""}
+            self.archivo_subido = {}
             self.recargar_tabla()
             edit_window.destroy()
 
         def delete_sendMoney():
-            if messagebox.askyesno("Confirmar", "¿Seguro que quieres eliminar esta venta?"):
+            if messagebox.askyesno("Confirmar", "¿Seguro que quieres eliminar este envío?"):
                 if self.process.deleteSendMoney(values[0]):
                     self.tree.delete(item_id)
                 self.recargar_tabla()
                 edit_window.destroy()
 
-        btn_guardar.configure(command=save_changes)
-        btn_eliminar.configure(command=delete_sendMoney)
-
-        # --- Selector de archivo ---
-        file_path_var = tk.StringVar()
-
-        # --- Label de estado ---
-        status_label = ctk.CTkLabel(edit_window, text="", fg_color="transparent", text_color="gray")
-        status_label.grid(row=len(self.columns)+2, column=0, columnspan=2, pady=5)
-
         def seleccionar_archivo():
-            self.archivo_subido = {"fileDriveId": "", "fileDriveUrl": ""}
-            archivo = filedialog.askopenfilename(parent=edit_window,filetypes=[("Todos los archivos", "*.*")])
+            self.archivo_subido = {}
+            archivo = filedialog.askopenfilename(
+                parent=edit_window,
+                filetypes=[
+                    ("Imagenes", "*.jpg *.jpeg *.png *.gif *.webp *.bmp"),
+                    ("PDF", "*.pdf"),
+                    ("Todos los archivos", "*.*")
+                ]
+            )
             if archivo:
                 file_path_var.set(archivo)
-
-                # Deshabilitar botones mientras sube
                 btn_guardar.configure(state="disabled")
                 btn_eliminar.configure(state="disabled")
-                # Actualizar label a "subiendo..."
-                status_label.configure(text="Subiendo archivo a Drive...")
+                status_label.configure(text="Subiendo a GCS...")
 
                 def subir_archivo():
-                    archivo_info = None
-                    with open(archivo, "rb") as f:
-                        archivo_info = {
-                            "nombre": os.path.basename(archivo),
-                            "base64": base64.b64encode(f.read()).decode("utf-8"),
-                            "tipo": os.path.splitext(archivo)[-1]
+                    try:
+                        # Initialize GCS service
+                        gcs = gcpService(credentials_path=os.getenv("GCS_CREDENTIALS_PATH"))
+                        bucket_name = os.getenv("GCS_BUCKET_NAME")
+
+                        # Upload to GCS
+                        resultado = gcs.upload_file(
+                            bucket_name=bucket_name,
+                            local_path=archivo,
+                            folder_prefix="images-vouchers"
+                        )
+
+                        self.archivo_subido = {
+                            "url": resultado.get("url"),
+                            "fileGsUrl": resultado.get("fileGsUrl"),
+                            "mimeType": resultado.get("mimeType"),
+                            "fileSize": resultado.get("fileSize")
                         }
-                    resultado = self.process.uploadFile(file_info=archivo_info)
-                    
-                    self.archivo_subido["fileDriveId"] = resultado.get("fileDriveId", "")
-                    self.archivo_subido["fileDriveUrl"] = resultado.get("fileDriveUrl", "")
 
-                    # Actualizar entry de URL en el hilo principal
-                    edit_window.after(0, lambda res=resultado: entries["Url"].delete(0, "end"))
-                    edit_window.after(0, lambda res=resultado: entries["Url"].insert(0, res.get("fileDriveUrl", "")))
-                    edit_window.after(0, lambda res=resultado: entries["Url"].icursor("end"))
+                        # Update UI
+                        edit_window.after(0, lambda: entries["Url"].delete(0, "end"))
+                        edit_window.after(0, lambda: entries["Url"].insert(0, resultado.get("url", "")))
+                        edit_window.after(0, lambda: entries["Url"].icursor("end"))
+                        edit_window.after(0, lambda: btn_guardar.configure(state="normal"))
+                        edit_window.after(0, lambda: btn_eliminar.configure(state="normal"))
+                        edit_window.after(0, lambda: status_label.configure(text="Subida completada"))
 
-                    # Rehabilitar botones en el hilo principal
-                    edit_window.after(0, lambda: btn_guardar.configure(state="normal"))
-                    edit_window.after(0, lambda: btn_eliminar.configure(state="normal"))
-                    status_label.configure(text="Subida completada")
+                    except Exception as e:
+                        print(f"Error uploading file: {e}")
+                        edit_window.after(0, lambda: btn_guardar.configure(state="normal"))
+                        edit_window.after(0, lambda: btn_eliminar.configure(state="normal"))
+                        edit_window.after(0, lambda: status_label.configure(text=f"Error: {str(e)[:30]}"))
 
                 threading.Thread(target=subir_archivo, daemon=True).start()
 
-        boton_archivo = ctk.CTkButton(edit_window, text="Seleccionar archivo", command=seleccionar_archivo)
-        boton_archivo.grid(row=len(self.columns), column=1, padx=10, pady=5, sticky="w")
+        btn_guardar.configure(command=save_changes)
+        btn_eliminar.configure(command=delete_sendMoney)
+        boton_archivo.configure(command=seleccionar_archivo)

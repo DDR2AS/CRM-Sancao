@@ -57,11 +57,12 @@ class App(ctk.CTk):
 
         # Sidebar
         self.sidebar = Sidebar(self, command=self.on_menu_click)
-        self.sidebar.grid(row=0, column=0, sticky="nsw")
+        self.sidebar.grid(row=0, column=0, sticky="ns")
 
         # Contenedor principal
         self.main_container = ctk.CTkFrame(self)
         self.main_container.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
+        self.grid_columnconfigure(0, weight=0, minsize=70)
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
 

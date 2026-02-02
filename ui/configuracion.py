@@ -3,8 +3,8 @@ import subprocess
 import threading
 import sys
 import os
+from version import APP_VERSION
 
-APP_VERSION = "1.0.2"
 APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 

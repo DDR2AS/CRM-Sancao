@@ -1,4 +1,6 @@
 import customtkinter as ctk
+from version import APP_VERSION
+
 
 class Sidebar(ctk.CTkFrame):
     def __init__(self, master, command=None):
@@ -45,7 +47,7 @@ class Sidebar(ctk.CTkFrame):
         # Footer
         ctk.CTkLabel(
             self,
-            text="v1.0.2",
+            text=f"v{APP_VERSION}",
             font=("Segoe UI", 11),
             text_color="#5d5d7a"
         ).pack(side="bottom", anchor="w", padx=15, pady=15)

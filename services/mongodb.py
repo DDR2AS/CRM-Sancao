@@ -201,7 +201,7 @@ class DBMongo:
         resumen_gastos["Fecha Fin"] = resumen_gastos["Fecha Fin"].dt.strftime("%Y-%m-%d")
         return resumen_gastos
     
-    def getSumaryAmountJornales(self):
+    def getSummaryAmountJornales(self):
         jornales = self.eiBusiness['planilla_jornales'].find(
             {},
             {

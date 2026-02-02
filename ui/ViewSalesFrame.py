@@ -189,6 +189,9 @@ class SalesFrame(ctk.CTkFrame):
 
                 # Alternar colores de fila
                 tag = "evenrow" if row_count % 2 == 0 else "oddrow"
+                url = row.get("Url", "")
+                url_str = url if pd.notna(url) else ""
+
                 self.tree.insert("", tk.END, values=(
                     row.get("COD", ""),
                     fecha_str,
@@ -196,7 +199,7 @@ class SalesFrame(ctk.CTkFrame):
                     f"{peso:.1f}" if peso else "",
                     row.get("PrecioxKg", ""),
                     f"{amount:.2f}",
-                    row.get("Url", "")
+                    url_str
                 ), tags=(tag,))
                 row_count += 1
 

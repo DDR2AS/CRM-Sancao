@@ -20,8 +20,13 @@ class Pipelines:
     
     def getSummaryByWeek(self):
         sum_expenses = self.mongo_service.getSummaryAmountGastos()
-        sum_jornales = self.mongo_service.getSumaryAmountJornales()
+        print(sum_expenses)
+
+        sum_jornales = self.mongo_service.getSummaryAmountJornales()
+        print(sum_jornales)
+
         sum_sendMoney = self.mongo_service.getSummaryAmountEnvios()
+        print(sum_sendMoney)
 
         df_consolidado = pd.merge(sum_expenses,sum_jornales, on=['Fecha Inicio', 'Fecha Fin'], how='outer')
         df_consolidado = pd.merge(df_consolidado,sum_sendMoney, on=['Fecha Inicio', 'Fecha Fin'], how='outer')
@@ -81,9 +86,16 @@ class Pipelines:
     
     def getTransactions(self):
         table_expenses = self.mongo_service.getGastos()
+        print(table_expenses)
         table_sendMoney = self.mongo_service.getEnvios()
+        print(table_sendMoney)
+
         table_jornales = self.mongo_service.getJornales()
+        print(table_jornales)
+
         table_sales = self.mongo_service.getSales()
+        print(table_sales)
+
         
         # Formateando Tabla gastos
         # Filtrar abonos

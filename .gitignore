@@ -3,6 +3,7 @@ consulting-mongodb.ipynb
 *.ipynb
 .venv
 ui/__pycache__
+__pycache__
 services/__pycache__
 keys/google.json
 keys/token.json

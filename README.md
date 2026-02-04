@@ -1,36 +1,41 @@
-## COMPILACIÓN
-```
-pip install pyinstaller
+# Steps for deployment 
+
+1. Check current status
 ``` 
+  git status 
+  git commit -m "[feat] changes"
+  git push origin main
+``` 
+
+2. Rebuild .exe
+
 Comando para compilar a `.exe`
 ``` 
-pyinstaller --onefile --noconsole --icon=cacao_1.ico --version-file=version.txt app.py 
-``` 
-Mejor versión
-``` 
+pip install pyinstaller
 pyinstaller --onefile --windowed --icon=cacao_1.ico --name="CRM-Sancao" --add-data "keys;keys" app.py
 ``` 
 
-# Deploy
+3. Copy new .exe to root
+``` 
+  copy dist\CRM-Sancao.exe CRM-Sancao.exe
+``` 
 
-  1. Check current status
-
-  ``` 
-  git status 
-  ```
-
-  2. Stage the files
-```
-  git add version.py ui/sidebar.py ui/configuracion.py ui/ViewSalesFrame.py
-```
-  3. Commit with a descriptive message
-```
-  git commit -m "feat: add auto-update feature and centralize version"
-```
-  4. Push to remote
-```
+4. Commit and push the new .exe
+``` 
+  git add CRM-Sancao.exe
+  git commit -m "build: update exe v1.0.x"
   git push origin main
-```
+``` 
+
+  
+  
+  
+  
+  
+  
+  
+  
+  
   ---
   To Test the Update Feature
 

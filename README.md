@@ -1,21 +1,24 @@
 # Steps for deployment 
 
-1. Check current status
-``` 
-  git status 
-  git commit -m "[feat] changes"
-  git push origin main
-``` 
+1. Rebuild .exe
 
-2. Rebuild .exe
-
-Comando para compilar a `.exe`
+Comando para compilar a `.exe` <br>
+`Edit version.py to new version (e.g., 1.0.5)`
 ``` 
 pip install pyinstaller
 pyinstaller --onefile --windowed --icon=cacao_1.ico --name="CRM-Sancao" --add-data "keys;keys" app.py
 ``` 
+2. Create a GitHub Release
 
-3. Copy new .exe to root
+  1. Go to: https://github.com/DDR2AS/CRM-Sancao/releases/new
+  2. Tag: v1.0.5 (must match version.py)
+  3. Title: v1.0.5
+  4. Description: What changed
+  5. Attach binary: Upload dist/CRM-Sancao.exe
+  6. Click "Publish release"
+
+  
+2. Copy new .exe to root
 ``` 
   copy dist\CRM-Sancao.exe CRM-Sancao.exe
 ``` 

@@ -20,13 +20,8 @@ class Pipelines:
     
     def getSummaryByWeek(self):
         sum_expenses = self.mongo_service.getSummaryAmountGastos()
-        print(sum_expenses)
-
         sum_jornales = self.mongo_service.getSummaryAmountJornales()
-        print(sum_jornales)
-
         sum_sendMoney = self.mongo_service.getSummaryAmountEnvios()
-        print(sum_sendMoney)
 
         df_consolidado = pd.merge(sum_expenses,sum_jornales, on=['Fecha Inicio', 'Fecha Fin'], how='outer')
         df_consolidado = pd.merge(df_consolidado,sum_sendMoney, on=['Fecha Inicio', 'Fecha Fin'], how='outer')
@@ -51,7 +46,6 @@ class Pipelines:
 
     def postSentMoney(self, data: dict, file_info=None):
         def tarea():
-            print(data)
             fecha = data["sentAt"]
             if file_info:
                 try:
@@ -86,15 +80,9 @@ class Pipelines:
     
     def getTransactions(self):
         table_expenses = self.mongo_service.getGastos()
-        print(table_expenses)
         table_sendMoney = self.mongo_service.getEnvios()
-        print(table_sendMoney)
-
         table_jornales = self.mongo_service.getJornales()
-        print(table_jornales)
-
         table_sales = self.mongo_service.getSales()
-        print(table_sales)
 
         
         # Formateando Tabla gastos
@@ -131,7 +119,6 @@ class Pipelines:
         df_consolidado['Actividad'] = df_consolidado['Actividad'].fillna('')
         df_consolidado = df_consolidado[['Fecha', 'Responsable','Tipo', 'Nombre', 'Actividad', 'Descripcion', 'Monto', 'GastoAbono', 'JornalDiario', 'JornalMensual', 'Enviado', 'Venta']]
         df_consolidado.to_csv('out/consolidado2.csv', index=False)
-        print(df_consolidado)
         return df_consolidado
 
     def updateExpenses(self, e_code, data):
@@ -144,11 +131,9 @@ class Pipelines:
 
     def getSales(self):
         table_sales = self.mongo_service.getSales()
-        print(table_sales)
         return table_sales
     
     def updateSale(self, v_code, data):
-        print(data)
         self.mongo_service.update_Sales(v_code,data)
         return True
 
@@ -157,7 +142,6 @@ class Pipelines:
         return True
     
     def updateSendMoney(self, s_code, data):
-        print(data)
         self.mongo_service.update_SendMoney(s_code,data)
         return True
 
@@ -166,7 +150,6 @@ class Pipelines:
         return True
     
     def updateJornal(self, j_code, data):
-        print(data)
         self.mongo_service.update_Jornal(j_code,data)
         return True
 

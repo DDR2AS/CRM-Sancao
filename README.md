@@ -24,33 +24,14 @@ pyinstaller --onefile --windowed --icon=cacao_1.ico --name="CRM-Sancao" --add-da
   git push origin main
 ``` 
 
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  ---
-  To Test the Update Feature
-
-  1. On the deployed machine, open the app
-  2. Go to Configuración
-  3. Click "Verificar actualizaciones"
-  4. If updates are found, click "Actualizar ahora"
-  5. The app will pull changes and restart automatically
-
-  ---
-  For Future Releases
-
-  When you release a new version:
-
-  1. Edit version.py and change:
-  APP_VERSION = "1.0.4"  # or whatever version
-  2. Commit and push:
-  git add version.py
-  git commit -m "bump version to 1.0.4"
-  git push origin main
-  3. On deployed machines, users click "Verificar actualizaciones" → "Actualizar ahora"
+   ---
+  Version Numbering Guide
+  ┌──────────────┬───────────────┐
+  │ Change Type  │    Example    │
+  ├──────────────┼───────────────┤
+  │ Bug fix      │ 1.0.4 → 1.0.5 │
+  ├──────────────┼───────────────┤
+  │ New feature  │ 1.0.5 → 1.1.0 │
+  ├──────────────┼───────────────┤
+  │ Major change │ 1.1.0 → 2.0.0 │
+  └──────────────┴───────────────┘

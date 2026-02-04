@@ -21,7 +21,7 @@ class Sidebar(ctk.CTkFrame):
             {"name": "Reporte Semanal", "icon": "📈"},
             {"name": "Gastos", "icon": "💰"},
             {"name": "Jornales", "icon": "👷"},
-            {"name": "Venta de Cacao", "icon": "🍫"},
+            {"name": "Ventas", "icon": "🍫"},
             {"name": "Enviado", "icon": "📤"},
             {"name": "Configuración", "icon": "⚙️"},
         ]

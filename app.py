@@ -67,11 +67,13 @@ class App(ctk.CTk):
         self.grid_rowconfigure(0, weight=1)
 
         self.current_view = None
-        self.show_view("Inicio")
+        self.notification = None
+        self.show_view("Dashboard")
 
     def on_menu_click(self, item):
         # Evitar acceso a vistas que requieren DB sin conexión aún
-        if (item == "Gastos"  or item == "Reporte Semanal" or item == "Jornales" or item == 'Enviado' or item == 'Venta de Cacao') and self.process is None:
+        views_require_db = ["Gastos", "Reporte Semanal", "Jornales", "Enviado", "Ventas"]
+        if item in views_require_db and self.process is None:
             print("Aún no se ha conectado a la base de datos. Espera un momento...")
             messagebox.showinfo("Database Connection", "Conectando a la BD. Espere un momento...")
             return
@@ -82,8 +84,8 @@ class App(ctk.CTk):
         if self.current_view:
             self.current_view.destroy()
 
-        if view_name == "Inicio":
-            self.current_view = InicioFrame(self.main_container)
+        if view_name == "Dashboard":
+            self.current_view = InicioFrame(self.main_container, process=self.process)
         elif view_name == 'Reporte Semanal':
             self.current_view = ResumenFrame(self.main_container,process=self.process)
         elif view_name == "Gastos":
@@ -94,7 +96,7 @@ class App(ctk.CTk):
             self.current_view = ConfiguracionFrame(self.main_container)
         elif view_name == "Enviado":
             self.current_view = EnviosFrame(self.main_container, process=self.process)
-        elif view_name == "Venta de Cacao":
+        elif view_name == "Ventas":
             self.current_view = SalesFrame(self.main_container, process=self.process)
         else:
             self.current_view = ctk.CTkLabel(self.main_container, text=f"Vista: {view_name}")
@@ -104,6 +106,49 @@ class App(ctk.CTk):
     def set_process(self, process):
         self.process = process
         print("Base de datos asignada a la app")
+        self.show_notification("✅ Conexión exitosa", "Base de datos conectada correctamente")
+
+    def show_notification(self, title, message, duration=4000):
+        """Show a toast notification at the bottom right"""
+        # Remove existing notification if any
+        if self.notification:
+            self.notification.destroy()
+
+        # Create notification frame
+        self.notification = ctk.CTkFrame(
+            self,
+            fg_color="#28a745",
+            corner_radius=10
+        )
+
+        inner = ctk.CTkFrame(self.notification, fg_color="transparent")
+        inner.pack(padx=15, pady=12)
+
+        ctk.CTkLabel(
+            inner,
+            text=title,
+            font=("Segoe UI", 13, "bold"),
+            text_color="white"
+        ).pack(anchor="w")
+
+        ctk.CTkLabel(
+            inner,
+            text=message,
+            font=("Segoe UI", 11),
+            text_color="#E8F5E9"
+        ).pack(anchor="w")
+
+        # Position at bottom right
+        self.notification.place(relx=0.98, rely=0.95, anchor="se")
+
+        # Auto-hide after duration
+        self.after(duration, self.hide_notification)
+
+    def hide_notification(self):
+        """Hide the notification"""
+        if self.notification:
+            self.notification.destroy()
+            self.notification = None
 
 if __name__ == "__main__":
     app = App()

@@ -17,15 +17,9 @@ pyinstaller --onefile --windowed --icon=cacao_1.ico --name="CRM-Sancao" --add-da
   5. Attach binary: Upload dist/CRM-Sancao.exe
   6. Click "Publish release"
 
-  
-2. Copy new .exe to root
-``` 
-  copy dist\CRM-Sancao.exe CRM-Sancao.exe
-``` 
 
-4. Commit and push the new .exe
+3. Commit and push the new .exe
 ``` 
-  git add CRM-Sancao.exe
   git commit -m "build: update exe v1.0.x"
   git push origin main
 ``` 

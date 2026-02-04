@@ -16,3 +16,4 @@ icon.ico
 *.csv
 notebooks
 *.json
+*.spec

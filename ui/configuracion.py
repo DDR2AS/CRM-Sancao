@@ -298,8 +298,15 @@ class ConfiguracionFrame(ctk.CTkFrame):
                 batch_script = os.path.join(exe_dir, "update.bat")
                 with open(batch_script, 'w') as f:
                     f.write(f'''@echo off
-timeout /t 2 /nobreak > nul
-del "{current_exe}"
+echo Esperando que la aplicacion se cierre...
+timeout /t 3 /nobreak > nul
+:retry
+del "{current_exe}" 2>nul
+if exist "{current_exe}" (
+    echo Esperando...
+    timeout /t 2 /nobreak > nul
+    goto retry
+)
 move "{new_exe_path}" "{current_exe}"
 start "" "{current_exe}"
 del "%~f0"
@@ -338,4 +345,7 @@ del "%~f0"
             creationflags=subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS,
             close_fds=True
         )
+        # Force close the entire application
+        app = self.winfo_toplevel()
+        app.destroy()
         sys.exit(0)

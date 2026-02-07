@@ -478,6 +478,53 @@ class DBMongo:
             print("Error en eliminar registro:", e)
             return False
 
+    # ==================== PRODUCCION ====================
+
+    def getProduccion(self):
+        pipeline = [
+            {
+                "$lookup": {
+                    "from": "attachments",
+                    "localField": "attachmentId",
+                    "foreignField": "_id",
+                    "as": "attachment"
+                }
+            },
+            {
+                "$addFields": {
+                    "attachmentUrl": {
+                        "$ifNull": [
+                            {"$arrayElemAt": ["$attachment.url", 0]},
+                            None
+                        ]
+                    }
+                }
+            },
+            {
+                "$project": {
+                    "_id": 0,
+                    "COD": "$p_code",
+                    "Fecha": "$registerAt",
+                    "Lugar": "$origin_place",
+                    "N° Baldes": "$amount_buckets",
+                    "Tipo Balde": "$bucket_type",
+                    "Peso (kg)": "$weight",
+                    "Estado": "$status",
+                    "Responsable": "$createdBy",
+                    "Url": "$attachmentUrl"
+                }
+            },
+            {"$sort": {"Fecha": -1}}
+        ]
+
+        result = self.eiBusiness["production_cacao"].aggregate(pipeline)
+        df_produccion = pd.DataFrame(list(result))
+
+        df_produccion["Fecha"] = pd.to_datetime(df_produccion["Fecha"], errors="coerce")
+        df_produccion["Peso (kg)"] = pd.to_numeric(df_produccion["Peso (kg)"], errors="coerce").fillna(0)
+        df_produccion["N° Baldes"] = pd.to_numeric(df_produccion["N° Baldes"], errors="coerce").fillna(0)
+        return df_produccion
+
     # ==================== ATTACHMENTS ====================
 
     def create_attachment(self, attachment_data: dict) -> ObjectId:

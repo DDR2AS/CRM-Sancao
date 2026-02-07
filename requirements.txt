@@ -14,3 +14,4 @@ gspread-dataframe==4.0.0
 google-cloud-storage
 Pillow
 requests
+matplotlib

@@ -1,6 +1,9 @@
 import customtkinter as ctk
 from datetime import datetime
 import pandas as pd
+import numpy as np
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 from services.process import Pipelines
 
@@ -20,8 +23,12 @@ class InicioFrame(ctk.CTkFrame):
         else:
             self.datos = pd.DataFrame()
 
+        # ===================== SCROLLABLE CONTAINER ===================== #
+        self.scroll = ctk.CTkScrollableFrame(self, fg_color="white")
+        self.scroll.pack(fill="both", expand=True)
+
         # ===================== HEADER ===================== #
-        header_frame = ctk.CTkFrame(self, fg_color="#F8F9FA", corner_radius=0)
+        header_frame = ctk.CTkFrame(self.scroll, fg_color="#F8F9FA", corner_radius=0)
         header_frame.pack(fill="x")
 
         header_inner = ctk.CTkFrame(header_frame, fg_color="transparent")
@@ -61,7 +68,7 @@ class InicioFrame(ctk.CTkFrame):
         self.month_selector.pack(side="left")
 
         # ===================== SUMMARY CARDS ===================== #
-        cards_frame = ctk.CTkFrame(self, fg_color="transparent")
+        cards_frame = ctk.CTkFrame(self.scroll, fg_color="transparent")
         cards_frame.pack(fill="x", padx=25, pady=25)
 
         # Configure grid for responsive cards
@@ -78,7 +85,7 @@ class InicioFrame(ctk.CTkFrame):
         self._create_summary_card(cards_frame, "VENTAS", "venta", "#28a745", "🍫", 1, 2)
 
         # ===================== BALANCE CARD ===================== #
-        balance_frame = ctk.CTkFrame(self, fg_color="#F8F9FA", corner_radius=12)
+        balance_frame = ctk.CTkFrame(self.scroll, fg_color="#F8F9FA", corner_radius=12)
         balance_frame.pack(fill="x", padx=25, pady=(0, 25))
 
         balance_inner = ctk.CTkFrame(balance_frame, fg_color="transparent")
@@ -106,6 +113,27 @@ class InicioFrame(ctk.CTkFrame):
             text_color="#888"
         )
         self.label_balance_desc.pack(anchor="w")
+
+        # ===================== CHART ===================== #
+        chart_frame = ctk.CTkFrame(self.scroll, fg_color="white", corner_radius=12, border_width=1, border_color="#E0E0E0")
+        chart_frame.pack(fill="x", padx=25, pady=(0, 25))
+
+        self.fig = Figure(figsize=(8, 3.5), dpi=100, facecolor="white")
+        self.ax = self.fig.add_subplot(111)
+        self.canvas = FigureCanvasTkAgg(self.fig, master=chart_frame)
+        self.canvas.get_tk_widget().pack(fill="x", padx=10, pady=10)
+
+        # Hover annotation
+        self._annot = self.ax.annotate(
+            "", xy=(0, 0), xytext=(0, 12),
+            textcoords="offset points", ha="center",
+            fontsize=9, fontweight="bold",
+            bbox=dict(boxstyle="round,pad=0.3", fc="#FFFFFFEE", ec="#CCCCCC", lw=0.8)
+        )
+        self._annot.set_visible(False)
+        self._chart_bars = []
+        self._chart_line = None
+        self.canvas.mpl_connect("motion_notify_event", self._on_chart_hover)
 
         # Load initial data
         self.update_dashboard()
@@ -228,6 +256,8 @@ class InicioFrame(ctk.CTkFrame):
             total_venta
         )
 
+        self._update_chart()
+
     def _set_all_values(self, gasto, jornal_diario, jornal_mensual, abono, enviado, venta):
         """Set all card values and calculate balance"""
         self.label_gasto.configure(text=f"S/ {gasto:,.2f}")
@@ -251,6 +281,136 @@ class InicioFrame(ctk.CTkFrame):
         self.label_balance_desc.configure(
             text=f"Ingresos: S/ {ingresos:,.2f}  |  Egresos: S/ {egresos:,.2f}"
         )
+
+    def _compute_monthly_summary(self):
+        """Compute ingresos, egresos and balance for the last 6 months."""
+        df = self.datos.copy()
+        if df.empty:
+            return [], [], [], []
+
+        df["Fecha"] = pd.to_datetime(df["Fecha"], errors="coerce")
+
+        year, month = self._parse_selected_month()
+
+        months_labels = []
+        ingresos_list = []
+        egresos_list = []
+        balance_list = []
+
+        month_names_short = [
+            "Ene", "Feb", "Mar", "Abr", "May", "Jun",
+            "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"
+        ]
+
+        for i in range(5, -1, -1):
+            m = month - i
+            y = year
+            while m <= 0:
+                m += 12
+                y -= 1
+
+            filtered = df[
+                (df["Fecha"].dt.year == y) & (df["Fecha"].dt.month == m)
+            ]
+
+            gasto = pd.to_numeric(filtered.get("Monto", pd.Series(dtype=float)), errors="coerce").fillna(0).sum()
+            jornal_d = pd.to_numeric(filtered.get("JornalDiario", pd.Series(dtype=float)), errors="coerce").fillna(0).sum()
+            jornal_m = pd.to_numeric(filtered.get("JornalMensual", pd.Series(dtype=float)), errors="coerce").fillna(0).sum()
+            enviado = pd.to_numeric(filtered.get("Enviado", pd.Series(dtype=float)), errors="coerce").fillna(0).sum()
+            venta = pd.to_numeric(filtered.get("Venta", pd.Series(dtype=float)), errors="coerce").fillna(0).sum()
+            abono = pd.to_numeric(filtered.get("GastoAbono", pd.Series(dtype=float)), errors="coerce").fillna(0).sum()
+
+            ingresos = venta + abono
+            egresos = gasto + jornal_d + jornal_m + enviado
+
+            months_labels.append(f"{month_names_short[m - 1]}\n{y}")
+            ingresos_list.append(ingresos)
+            egresos_list.append(egresos)
+            balance_list.append(ingresos - egresos)
+
+        return months_labels, ingresos_list, egresos_list, balance_list
+
+    def _update_chart(self):
+        """Redraw the chart with current data."""
+        labels, ingresos, egresos, balance = self._compute_monthly_summary()
+
+        self.ax.clear()
+        self._chart_bars = []
+        self._chart_line = None
+
+        # Re-create annotation after clear
+        self._annot = self.ax.annotate(
+            "", xy=(0, 0), xytext=(0, 12),
+            textcoords="offset points", ha="center",
+            fontsize=9, fontweight="bold",
+            bbox=dict(boxstyle="round,pad=0.3", fc="#FFFFFFEE", ec="#CCCCCC", lw=0.8)
+        )
+        self._annot.set_visible(False)
+
+        if not labels:
+            self.ax.text(0.5, 0.5, "Sin datos", ha="center", va="center",
+                         fontsize=14, color="#888", transform=self.ax.transAxes)
+            self.canvas.draw()
+            return
+
+        x = np.arange(len(labels))
+        width = 0.32
+
+        bars_ing = self.ax.bar(x - width / 2, ingresos, width, color="#28a745", label="Ingresos", zorder=2)
+        bars_egr = self.ax.bar(x + width / 2, egresos, width, color="#DC3545", label="Egresos", zorder=2)
+        line = self.ax.plot(x, balance, color="#3EA5FF", linewidth=2, linestyle="--", marker="o",
+                            markersize=6, label="Balance", zorder=3)
+
+        self._chart_bars = list(bars_ing) + list(bars_egr)
+        self._chart_line = line[0]
+
+        self.ax.set_xticks(x)
+        self.ax.set_xticklabels(labels, fontsize=9)
+        self.ax.legend(fontsize=9, loc="upper left")
+        self.ax.set_ylabel("S/", fontsize=10)
+        self.ax.grid(axis="y", linestyle="--", alpha=0.3, zorder=0)
+        self.ax.set_axisbelow(True)
+        self.ax.spines["top"].set_visible(False)
+        self.ax.spines["right"].set_visible(False)
+        self.fig.tight_layout()
+        self.canvas.draw()
+
+    def _on_chart_hover(self, event):
+        """Show value tooltip when hovering over bars or line points."""
+        if event.inaxes != self.ax:
+            if self._annot.get_visible():
+                self._annot.set_visible(False)
+                self.canvas.draw_idle()
+            return
+
+        # Check bars
+        for bar in self._chart_bars:
+            if bar.contains(event)[0]:
+                val = bar.get_height()
+                x = bar.get_x() + bar.get_width() / 2
+                y = val
+                self._annot.xy = (x, y)
+                self._annot.set_text(f"S/ {val:,.0f}")
+                self._annot.set_visible(True)
+                self.canvas.draw_idle()
+                return
+
+        # Check line points
+        if self._chart_line is not None:
+            contains, info = self._chart_line.contains(event)
+            if contains:
+                idx = info["ind"][0]
+                xdata = self._chart_line.get_xdata()
+                ydata = self._chart_line.get_ydata()
+                self._annot.xy = (xdata[idx], ydata[idx])
+                self._annot.set_text(f"S/ {ydata[idx]:,.0f}")
+                self._annot.set_visible(True)
+                self.canvas.draw_idle()
+                return
+
+        if self._annot.get_visible():
+            self._annot.set_visible(False)
+            self.canvas.draw_idle()
 
     def _try_reload_after_connection(self):
         """Try to reload data after DB connection is ready"""

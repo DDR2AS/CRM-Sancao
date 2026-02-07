@@ -10,7 +10,7 @@ GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 
 class Sidebar(ctk.CTkFrame):
     def __init__(self, master, command=None):
-        super().__init__(master, width=220, corner_radius=0, fg_color="#1a1a2e")
+        super().__init__(master, width=180, corner_radius=0, fg_color="#1a1a2e")
         self.pack_propagate(False)
         self.command = command
         self.buttons = []
@@ -18,10 +18,11 @@ class Sidebar(ctk.CTkFrame):
 
         self.menu_items = [
             {"name": "Dashboard", "icon": "📊"},
-            {"name": "Reporte Semanal", "icon": "📈"},
+            {"name": "Reporte", "icon": "📈"},
             {"name": "Gastos", "icon": "💰"},
             {"name": "Jornales", "icon": "👷"},
             {"name": "Ventas", "icon": "🍫"},
+            {"name": "Producción", "icon": "🌱"},
             {"name": "Enviado", "icon": "📤"},
             {"name": "Configuración", "icon": "⚙️"},
         ]

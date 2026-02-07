@@ -3,7 +3,6 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from services.google_storage import gcpService
 from datetime import datetime
-from dotenv import load_dotenv
 import pandas as pd
 import webbrowser
 from tkcalendar import DateEntry
@@ -11,11 +10,10 @@ import threading
 import shutil
 import os
 
-load_dotenv() 
-
+from services.process import Pipelines
 
 class SalesFrame(ctk.CTkFrame):
-    def __init__(self, master, process):
+    def __init__(self, master, process: Pipelines):
         super().__init__(master, fg_color="white")
         self.process = process
 

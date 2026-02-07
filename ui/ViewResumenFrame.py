@@ -10,6 +10,10 @@ import os
 import sys
 import subprocess
 
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_agg import FigureCanvasAgg
 from services.process import Pipelines
 
 
@@ -65,7 +69,7 @@ class ResumenFrame(ctk.CTkFrame):
 
         ctk.CTkLabel(
             header_inner,
-            text="Reporte Semanal",
+            text="Reporte",
             font=("Segoe UI", 24, "bold"),
             text_color="#1a1a2e"
         ).pack(side="left")
@@ -85,6 +89,23 @@ class ResumenFrame(ctk.CTkFrame):
         ctk.CTkLabel(filtro_frame, text="Hasta:", font=("Segoe UI", 12), text_color="#555").pack(side="left", padx=(0, 5))
         self.date_fin = DateEntry(filtro_frame, date_pattern="yyyy-mm-dd", font=("Segoe UI", 10))
         self.date_fin.pack(side="left", padx=(0, 12))
+
+        ctk.CTkLabel(filtro_frame, text="Tipo:", font=("Segoe UI", 12), text_color="#555").pack(side="left", padx=(0, 5))
+        tipo_values = ["Todos"]
+        if not self.detalle_datos.empty and "Tipo" in self.detalle_datos.columns:
+            tipos = self.detalle_datos["Tipo"].dropna().unique().tolist()
+            tipos.sort()
+            tipo_values += tipos
+        self.combo_tipo = ctk.CTkComboBox(
+            filtro_frame,
+            values=tipo_values,
+            width=130,
+            height=28,
+            font=("Segoe UI", 11),
+            state="readonly"
+        )
+        self.combo_tipo.set("Todos")
+        self.combo_tipo.pack(side="left", padx=(0, 12))
 
         ctk.CTkButton(
             filtro_frame,
@@ -145,8 +166,8 @@ class ResumenFrame(ctk.CTkFrame):
         scrollbar_x = ttk.Scrollbar(tabla_frame, orient="horizontal")
 
         # Tabla Detalle
-        self.tabla_detalle_columns = ("Item", "Fecha", "Responsable", "Tipo", "Nombre", "Actividad", "Descripción", "Abono (S/.)", "Gasto (S/.)", "Jornal (S/.)", "J. Mensual (S/.)", "Enviado (S/.)", "Venta Cacao (S/.)")
-        self.width1 = [50, 90, 110, 80, 150, 120, 160, 90, 90, 90, 95, 90, 110]
+        self.tabla_detalle_columns = ("Item", "Fecha", "Responsable", "Tipo", "Nombre", "Actividad", "Descripción", "Abono (S/.)", "Gasto (S/.)", "Jornal (S/.)", "J. Mensual (S/.)", "Enviado (S/.)", "Venta Cacao (S/.)", "Kg S.Fernando", "Kg L.Palmas")
+        self.width1 = [50, 90, 110, 80, 150, 120, 160, 90, 90, 90, 95, 90, 110, 95, 95]
 
         self.tabla_detalle = ttk.Treeview(
             tabla_frame,
@@ -157,8 +178,9 @@ class ResumenFrame(ctk.CTkFrame):
             xscrollcommand=scrollbar_x.set
         )
 
+        self._sort_state = {}  # Track sort direction per column
         for i, col in enumerate(self.tabla_detalle_columns):
-            self.tabla_detalle.heading(col, text=col)
+            self.tabla_detalle.heading(col, text=col, command=lambda c=col: self._sort_by_column(c))
             self.tabla_detalle.column(col, anchor=tk.CENTER, width=self.width1[i])
 
         # Grid layout for table
@@ -198,6 +220,18 @@ class ResumenFrame(ctk.CTkFrame):
             corner_radius=8
         )
         self.boton_exportar.pack(side="right")
+
+        ctk.CTkButton(
+            footer_frame,
+            text="Exportar a PNG",
+            command=self.exportar_a_png,
+            width=150,
+            height=38,
+            font=("Segoe UI", 13, "bold"),
+            fg_color="#3EA5FF",
+            hover_color="#2196F3",
+            corner_radius=8
+        ).pack(side="right", padx=(0, 10))
         """
         # Tabla
         self.columns = ("Fecha Inicio", "Fecha Fin", "Gasto", "Jornal", "Envíos Dinero")
@@ -214,6 +248,37 @@ class ResumenFrame(ctk.CTkFrame):
         self.aplicar_filtro_fechas()
 
     # ========= FUNCIONES ========= #
+    def _sort_by_column(self, col, ascending=None):
+        """Sort treeview rows by clicking column header."""
+        if ascending is None:
+            ascending = not self._sort_state.get(col, False)
+        self._sort_state[col] = ascending
+
+        rows = [(self.tabla_detalle.set(iid, col), iid) for iid in self.tabla_detalle.get_children()]
+
+        def sort_key(item):
+            val = item[0]
+            try:
+                return (0, float(val))
+            except (ValueError, TypeError):
+                return (1, val.lower() if isinstance(val, str) else str(val))
+
+        rows.sort(key=sort_key, reverse=not ascending)
+
+        for idx, (_, iid) in enumerate(rows):
+            self.tabla_detalle.move(iid, "", idx)
+            tag = "evenrow" if idx % 2 == 0 else "oddrow"
+            self.tabla_detalle.item(iid, tags=(tag,))
+
+        # Update heading to show sort indicator
+        arrow = " ▲" if ascending else " ▼"
+        for c in self.tabla_detalle_columns:
+            clean = c.rstrip(" ▲▼")
+            if c == col:
+                self.tabla_detalle.heading(c, text=clean + arrow)
+            else:
+                self.tabla_detalle.heading(c, text=clean)
+
     def _truncate_text(self, text, max_length=30):
         """Truncate text and add ellipsis if longer than max_length."""
         text = str(text).replace("\n", " ").replace("\r", "")
@@ -278,9 +343,9 @@ class ResumenFrame(ctk.CTkFrame):
         # Clear stored descriptions
         self.full_descriptions = {}
 
-        # Ordenando las filas ascendente por fecha
+        # Ordenando las filas descendente por fecha
         if "Fecha" in datos.columns:
-            datos = datos.sort_values(by="Fecha", ascending=True)
+            datos = datos.sort_values(by="Fecha", ascending=False)
 
         total_gastos = 0.0
         total_jornal_diario = 0.0
@@ -307,6 +372,8 @@ class ResumenFrame(ctk.CTkFrame):
             jornalMensual = row.JornalMensual if pd.notna(getattr(row, "JornalMensual", "")) else 0.0
             enviado = row.Enviado if pd.notna(getattr(row, "Enviado", "")) else 0.0
             venta = row.Venta if pd.notna(getattr(row, "Venta", "")) else 0.0
+            kgSF = row.KgSanFernando if pd.notna(getattr(row, "KgSanFernando", "")) else 0.0
+            kgLP = row.KgLasPalmas if pd.notna(getattr(row, "KgLasPalmas", "")) else 0.0
 
             # Truncate description for display
             descripcion_truncada = self._truncate_text(descripcion, max_length=30)
@@ -326,7 +393,9 @@ class ResumenFrame(ctk.CTkFrame):
                 f"{jornalDiario:.2f}" if jornalDiario else "",
                 f"{jornalMensual:.2f}" if jornalMensual else "",
                 f"{enviado:.2f}" if enviado else "",
-                f"{venta:.2f}" if venta else ""
+                f"{venta:.2f}" if venta else "",
+                f"{kgSF:.1f}" if kgSF else "",
+                f"{kgLP:.1f}" if kgLP else ""
             ), tags=(tag,))
 
             # Store full description for tooltip
@@ -360,10 +429,13 @@ class ResumenFrame(ctk.CTkFrame):
         df["Fecha"] = pd.to_datetime(df["Fecha"], errors="coerce")
         df["Actividad"] = df["Actividad"].fillna('')  # Rellenar NaN con ''
 
-        self.datos_filtrados = df[
-            (df["Fecha"] >= fecha_ini) &
-            (df["Fecha"] <= fecha_fin)
-        ]
+        filtro = (df["Fecha"] >= fecha_ini) & (df["Fecha"] <= fecha_fin)
+
+        tipo_selected = self.combo_tipo.get()
+        if tipo_selected and tipo_selected != "Todos":
+            filtro = filtro & (df["Tipo"] == tipo_selected)
+
+        self.datos_filtrados = df[filtro]
 
         self.cargar_detalle_datos(self.datos_filtrados)
     
@@ -400,6 +472,136 @@ class ResumenFrame(ctk.CTkFrame):
             except Exception as e:
                 messagebox.showerror("Error", f"Error al exportar:\n{e}")
                 print(f"Error al exportar: {e}")
+
+    def exportar_a_png(self):
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".png",
+            filetypes=[("PNG Image", "*.png")],
+            title="Guardar imagen como..."
+        )
+
+        if file_path:
+            try:
+                if not os.path.isabs(file_path):
+                    file_path = os.path.abspath(file_path)
+
+                # Build table data from treeview
+                columns = list(self.tabla_detalle_columns)
+                rows = []
+                for iid in self.tabla_detalle.get_children():
+                    rows.append(list(self.tabla_detalle.item(iid, "values")))
+
+                if not rows:
+                    messagebox.showinfo("Info", "No hay datos para exportar.")
+                    return
+
+                n_rows = len(rows)
+                n_cols = len(columns)
+
+                # Color map for Tipo column
+                tipo_colors = {
+                    "Víveres": ("#c05d49", "#FFFFFF"),
+                    "Gastos": ("#c05d49", "#FFFFFF"),
+                    "Jornales": ("#1F66E0", "#FFFFFF"),
+                    "Efectivo": ("#D6D64B", "#000000"),
+                    "Venta Cacao": ("#3cad27", "#FFFFFF"),
+                    "Producción": ("#6F4E37", "#FFFFFF"),
+                }
+                tipo_col_idx = columns.index("Tipo") if "Tipo" in columns else -1
+
+                # Build totals row
+                numeric_cols = {"Abono (S/.)", "Gasto (S/.)", "Jornal (S/.)", "J. Mensual (S/.)", "Enviado (S/.)", "Venta Cacao (S/.)", "Kg S.Fernando", "Kg L.Palmas"}
+                totals_row = []
+                for j, col_name in enumerate(columns):
+                    if col_name in numeric_cols:
+                        total = 0.0
+                        for row in rows:
+                            try:
+                                total += float(row[j]) if row[j] else 0.0
+                            except (ValueError, TypeError):
+                                pass
+                        if "Kg" in col_name:
+                            totals_row.append(f"{total:,.1f}")
+                        else:
+                            totals_row.append(f"{total:,.2f}")
+                    elif j == 0:
+                        totals_row.append("TOTAL")
+                    else:
+                        totals_row.append("")
+
+                all_rows = rows + [totals_row]
+                n_all = len(all_rows)
+
+                # Calculate column widths based on actual text content
+                char_w = 0.09  # inches per character
+                padding = 0.2  # extra padding per column
+                col_widths_in = []
+                for j, col_name in enumerate(columns):
+                    max_len = len(col_name)
+                    for row in all_rows:
+                        max_len = max(max_len, len(str(row[j])))
+                    col_widths_in.append(max_len * char_w + padding)
+
+                fig_width = sum(col_widths_in)
+                col_widths = [w / fig_width for w in col_widths_in]
+                row_height = 0.3
+                fig_height = row_height * (n_all + 1) + 0.2
+
+                fig, ax = plt.subplots(figsize=(fig_width, fig_height))
+                ax.set_xlim(0, 1)
+                ax.set_ylim(0, n_all + 1)
+                ax.axis("off")
+                fig.subplots_adjust(left=0.01, right=0.99, top=0.99, bottom=0.01)
+
+                # Draw header
+                x_pos = 0
+                for j, col_name in enumerate(columns):
+                    w = col_widths[j]
+                    ax.add_patch(plt.Rectangle((x_pos, n_all), w, 1, facecolor="#2C3E50", edgecolor="#1a1a2e", linewidth=0.5))
+                    ax.text(x_pos + w / 2, n_all + 0.5, col_name, ha="center", va="center",
+                            fontsize=9, fontweight="bold", color="white", fontfamily="Segoe UI")
+                    x_pos += w
+
+                # Draw rows + totals
+                for i, row in enumerate(all_rows):
+                    y = n_all - 1 - i
+                    is_total = (i == len(all_rows) - 1)
+
+                    if is_total:
+                        bg = "#DDDDDD"
+                    else:
+                        bg = "#F5F5F5" if i % 2 == 0 else "#FFFFFF"
+
+                    x_pos = 0
+                    for j, val in enumerate(row):
+                        w = col_widths[j]
+                        cell_bg = bg
+                        cell_color = "#222222"
+                        fw = "bold" if is_total else "normal"
+
+                        # Color Tipo cell (not on totals row)
+                        if not is_total and j == tipo_col_idx and str(val) in tipo_colors:
+                            cell_bg, cell_color = tipo_colors[str(val)]
+
+                        ax.add_patch(plt.Rectangle((x_pos, y), w, 1, facecolor=cell_bg, edgecolor="#E0E0E0", linewidth=0.3))
+                        ax.text(x_pos + w / 2, y + 0.5, str(val), ha="center", va="center",
+                                fontsize=8.5, color=cell_color, fontweight=fw, fontfamily="Segoe UI")
+                        x_pos += w
+
+                fig.savefig(file_path, dpi=200, bbox_inches="tight", pad_inches=0.05, facecolor="white")
+                plt.close(fig)
+                print(f"PNG exportado exitosamente a {file_path}")
+
+                if messagebox.askyesno("Éxito", f"Imagen exportada exitosamente.\n\n¿Desea abrir el archivo?"):
+                    if sys.platform == "win32":
+                        os.startfile(file_path)
+                    elif sys.platform == "darwin":
+                        subprocess.run(["open", file_path])
+                    else:
+                        subprocess.run(["xdg-open", file_path])
+            except Exception as e:
+                messagebox.showerror("Error", f"Error al exportar PNG:\n{e}")
+                print(f"Error al exportar PNG: {e}")
 
     def cargar_datos(self, datos):
         for item in self.tree.get_children():

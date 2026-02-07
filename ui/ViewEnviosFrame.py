@@ -18,98 +18,149 @@ class EnviosFrame(ctk.CTkFrame):
     def __init__(self, master, process):
         super().__init__(master, fg_color="white")
         self.process = process
-        # Iniciar actualización automática cada 2 minutos (120,000 ms)
         self.after(60000, self.update_cronjob)
 
-        # ===================== TITULO Y FILTROS ===================== #
-        titulo_filtro_frame = ctk.CTkFrame(self, fg_color="transparent")
-        titulo_filtro_frame.pack(fill="x", padx=20, pady=(10, 0))
+        # ===================== DATOS ===================== #
+        try:
+            self.datos_table = self.process.getEnvios()
+            print(f"Envios cargados: {len(self.datos_table)} registros")
+        except Exception as e:
+            print("Error al obtener datos desde process.getEnvios():", e)
+            self.datos_table = pd.DataFrame(columns=["Tipo", "Monto Total", "COD", "Fecha", "Descripcion", "Url", "Responsable"])
 
-        titulo_label = ctk.CTkLabel(
-            titulo_filtro_frame,
-            text="Gestión de Envíos",
-            font=("Arial", 22, "bold"),
-            anchor="w",
-            justify="left"
-        )
-        titulo_label.pack(side="left", padx=(0, 20))
+        # ===================== HEADER ===================== #
+        header_frame = ctk.CTkFrame(self, fg_color="#F8F9FA", corner_radius=0)
+        header_frame.pack(fill="x")
 
-        filtro_frame = ctk.CTkFrame(titulo_filtro_frame, fg_color="transparent")
+        header_inner = ctk.CTkFrame(header_frame, fg_color="transparent")
+        header_inner.pack(fill="x", padx=25, pady=15)
+
+        ctk.CTkLabel(
+            header_inner,
+            text="Gestion de Envios",
+            font=("Segoe UI", 24, "bold"),
+            text_color="#1a1a2e"
+        ).pack(side="left")
+
+        # Filtro frame (derecha)
+        filtro_frame = ctk.CTkFrame(header_inner, fg_color="transparent")
         filtro_frame.pack(side="right")
-        
-        # Obtener primer día del mes actual
+
         hoy = datetime.today()
         first_day = hoy.replace(day=1)
 
-        ctk.CTkLabel(filtro_frame, text="Fecha Inicio:").pack(side="left", padx=(10, 5))
-        self.date_inicio = DateEntry(filtro_frame, date_pattern="yyyy-mm-dd")
-        self.date_inicio.set_date(first_day)  # Asignamos el primer día del mes
-        self.date_inicio.pack(side="left", padx=5, pady=10)
+        ctk.CTkLabel(filtro_frame, text="Desde:", font=("Segoe UI", 12), text_color="#555").pack(side="left", padx=(0, 5))
+        self.date_inicio = DateEntry(filtro_frame, date_pattern="yyyy-mm-dd", font=("Segoe UI", 10))
+        self.date_inicio.set_date(first_day)
+        self.date_inicio.pack(side="left", padx=(0, 12))
 
-        ctk.CTkLabel(filtro_frame, text="Fecha Fin:").pack(side="left", padx=(10, 5))
-        self.date_fin = DateEntry(filtro_frame, date_pattern="yyyy-mm-dd")
-        self.date_fin.pack(side="left", padx=5, pady=10)
+        ctk.CTkLabel(filtro_frame, text="Hasta:", font=("Segoe UI", 12), text_color="#555").pack(side="left", padx=(0, 5))
+        self.date_fin = DateEntry(filtro_frame, date_pattern="yyyy-mm-dd", font=("Segoe UI", 10))
+        self.date_fin.pack(side="left", padx=(0, 12))
 
         ctk.CTkButton(
             filtro_frame,
             text="Filtrar",
-            command=self.filterTableByDates
-        ).pack(side="left", padx=10, pady=10)
-        
-        # ===================== TOTALES Y NUEVO ENVÍO ===================== #
-        frame_totales = ctk.CTkFrame(self, fg_color="#f0f0f0")
-        frame_totales.pack(fill="x", padx=20, pady=(10, 0))
+            command=self.filterTableByDates,
+            width=90,
+            height=32,
+            font=("Segoe UI", 12, "bold"),
+            fg_color="#3EA5FF",
+            hover_color="#2196F3",
+            corner_radius=6
+        ).pack(side="left")
 
-        self.label_total = ctk.CTkLabel(
-            frame_totales,
-            text="Total Envíos: S/ 0.0",
-            font=("Arial", 18, "bold"),
-            text_color="#333333"
-        )
-        self.label_total.pack(side="left", padx=15, pady=10)
+        # ===================== TOTALES + NUEVO ENVIO ===================== #
+        totales_frame = ctk.CTkFrame(self, fg_color="transparent")
+        totales_frame.pack(fill="x", padx=25, pady=(15, 10))
 
+        # Card total
+        frame_total = ctk.CTkFrame(totales_frame, fg_color="#17a2b8", corner_radius=10)
+        frame_total.pack(side="left")
+
+        total_inner = ctk.CTkFrame(frame_total, fg_color="transparent")
+        total_inner.pack(padx=15, pady=6)
+
+        ctk.CTkLabel(total_inner, text="TOTAL ENVIOS", font=("Segoe UI", 9), text_color="#D1ECF1").pack(anchor="w")
+        self.label_total = ctk.CTkLabel(total_inner, text="S/ 0.0", font=("Segoe UI", 16, "bold"), text_color="white")
+        self.label_total.pack(anchor="w")
+
+        # Boton nuevo envio
         ctk.CTkButton(
-            frame_totales, 
-            text="Nuevo Envío", 
-            command=self.abrir_ventana_envio
-        ).pack(side="right", padx=15, pady=10)
-        # ===================== FATOS ===================== #
-        try:
-            self.datos_table = self.process.getEnvios()
-        except Exception as e:
-            print("Error al obtener datos desde process.getEnvios():", e)
-            self.columns = ("COD", "Fecha envío", "Monto (S/)", "Descripción", "Url")
-            self.datos_table = pd.DataFrame(self.columns)
+            totales_frame,
+            text="+ Nuevo Envio",
+            command=self.abrir_ventana_envio,
+            width=140,
+            height=38,
+            font=("Segoe UI", 13, "bold"),
+            fg_color="#28a745",
+            hover_color="#1e7e34",
+            corner_radius=8
+        ).pack(side="right")
 
-        # Estilos
+        # ===================== TABLA ===================== #
         style = ttk.Style()
         style.theme_use("clam")
         style.configure("Treeview",
-                        font=("Segoe UI", 12),
-                        rowheight=32,
-                        background="#F9F9F9",
-                        fieldbackground="#F9F9F9",
-                        foreground="#333333",
-                        borderwidth=0)
+                        font=("Segoe UI", 13),
+                        rowheight=38,
+                        background="#FFFFFF",
+                        fieldbackground="#FFFFFF",
+                        foreground="#222222",
+                        borderwidth=1,
+                        relief="solid")
         style.configure("Treeview.Heading",
-                        font=("Segoe UI", 14, "bold"),
-                        background="#3EA5FF",
-                        foreground="#000000",
-                        relief="flat")
-        # Tabla
-        self.columns = ("COD", "Fecha envío", "Monto (S/)", "Descripción", "Url")
-        self.width1 = [64,109,125,315,355]
+                        font=("Segoe UI", 13, "bold"),
+                        background="#2C3E50",
+                        foreground="#FFFFFF",
+                        relief="flat",
+                        padding=(10, 8))
+        style.map("Treeview",
+                  background=[("selected", "#E3F2FD")],
+                  foreground=[("selected", "#1565C0")])
+        style.map("Treeview.Heading",
+                  background=[("active", "#34495E")])
 
-        self.tree = ttk.Treeview(self, columns=self.columns, show="headings", height=10)
+        tabla_container = ctk.CTkFrame(self, fg_color="#FFFFFF", corner_radius=10)
+        tabla_container.pack(fill="both", expand=True, padx=25, pady=(5, 15))
+
+        tabla_frame = tk.Frame(tabla_container, bg="#FFFFFF")
+        tabla_frame.pack(fill="both", expand=True, padx=2, pady=2)
+
+        scrollbar_y = ttk.Scrollbar(tabla_frame, orient="vertical")
+        scrollbar_x = ttk.Scrollbar(tabla_frame, orient="horizontal")
+
+        self.columns = ("COD", "Fecha envío", "Monto (S/)", "Descripción", "Url")
+        self.width1 = [80, 120, 120, 320, 280]
+
+        self.tree = ttk.Treeview(
+            tabla_frame,
+            columns=self.columns,
+            show="headings",
+            height=10,
+            yscrollcommand=scrollbar_y.set,
+            xscrollcommand=scrollbar_x.set
+        )
 
         for i, col in enumerate(self.columns):
-            self.tree.heading(col, text=col)
-            self.tree.column(col, anchor=tk.CENTER, width=self.width1[i])
+            self.tree.heading(col, text=col, anchor="center")
+            self.tree.column(col, anchor="center", width=self.width1[i])
 
-        self.tree.pack(fill="both", expand=True, padx=20, pady=10)
+        self.tree.tag_configure("oddrow", background="#FFFFFF")
+        self.tree.tag_configure("evenrow", background="#F5F5F5")
+
+        self.tree.grid(row=0, column=0, sticky="nsew")
+        scrollbar_y.grid(row=0, column=1, sticky="ns")
+        scrollbar_x.grid(row=1, column=0, sticky="ew")
+
+        scrollbar_y.config(command=self.tree.yview)
+        scrollbar_x.config(command=self.tree.xview)
+
+        tabla_frame.grid_rowconfigure(0, weight=1)
+        tabla_frame.grid_columnconfigure(0, weight=1)
 
         self.tree.bind("<Double-1>", self.on_double_click)
-        self.cargar_datos(self.datos_table)
+        self.filterTableByDates()
     
     # ========= FUNCIONES ========= #
     def update_cronjob(self):
@@ -340,8 +391,10 @@ class EnviosFrame(ctk.CTkFrame):
         datos = datos.sort_values(by="Fecha", ascending=True)
 
         if datos.empty:
+            self.label_total.configure(text="S/ 0.0")
             return
         total = 0.0
+        row_count = 0
         for _, row in datos.iterrows():
             try:
                 fecha = row.get("Fecha")
@@ -349,30 +402,29 @@ class EnviosFrame(ctk.CTkFrame):
                     fecha = datetime.strptime(fecha, "%Y-%m-%d")
                 fecha_str = fecha.strftime("%Y-%m-%d")
 
-                # Filtrando valores nan
                 url = row['Url'] if pd.notna(row.get('Url')) else ""
                 amount = float(row.get("Monto Total", 0))
                 total += amount
+
+                tag = "evenrow" if row_count % 2 == 0 else "oddrow"
                 self.tree.insert("", tk.END, values=(
                     row.get("COD", ""),
                     fecha_str,
-                    f"{row.get('Monto Total', 0):.1f}",
+                    f"{amount:,.1f}",
                     row.get("Descripcion", ""),
                     url
-                ))
+                ), tags=(tag,))
+                row_count += 1
             except Exception as e:
                 print("Error cargando fila:", e)
-        self.label_total.configure(text=f"Total Envíos: S/ {total:,.1f}")
+        self.label_total.configure(text=f"S/ {total:,.2f}")
             
     def recargar_tabla(self):
         try:
-            nuevos_datos = self.process.getEnvios()
-            self.cargar_datos(nuevos_datos)
+            self.datos_table = self.process.getEnvios()
+            self.filterTableByDates()
         except Exception as e:
             print("Error al recargar la tabla:", e)
-            self.columns = ("COD", "Fecha envío", "Monto (S/)", "Descripción", "Url")
-            self.datos_table = pd.DataFrame(self.columns)
-            self.cargar_datos(nuevos_datos)
     
     def open_url_chrome(self, event):
         # Detectar la fila y columna clicada

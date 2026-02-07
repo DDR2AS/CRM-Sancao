@@ -114,12 +114,35 @@ class Pipelines:
             'Monto' : 'Venta'
         })
 
-        df_consolidado = pd.concat([df_gastos,df_abono,table_jornales,table_sendMoney,table_sales],axis=0)
+        # Formateando Tabla Produccion
+        table_produccion = self.mongo_service.getProduccion()
+        df_produccion = pd.DataFrame()
+        if not table_produccion.empty:
+            table_produccion['Lugar_lower'] = table_produccion['Lugar'].str.lower()
+
+            df_sf = table_produccion[table_produccion['Lugar_lower'] == 'san fernando'][['Fecha', 'Responsable', 'Peso (kg)']].copy()
+            df_sf = df_sf.rename(columns={'Peso (kg)': 'KgSanFernando'})
+            df_sf['Tipo'] = 'Producción'
+            df_sf['Nombre'] = 'San Fernando'
+
+            df_lp = table_produccion[table_produccion['Lugar_lower'] == 'las palmas'][['Fecha', 'Responsable', 'Peso (kg)']].copy()
+            df_lp = df_lp.rename(columns={'Peso (kg)': 'KgLasPalmas'})
+            df_lp['Tipo'] = 'Producción'
+            df_lp['Nombre'] = 'Las Palmas'
+
+            df_produccion = pd.concat([df_sf, df_lp], axis=0)
+
+        df_consolidado = pd.concat([df_gastos,df_abono,table_jornales,table_sendMoney,table_sales,df_produccion],axis=0)
         df_consolidado.sort_values(by='Fecha',ascending=True)
         df_consolidado['Actividad'] = df_consolidado['Actividad'].fillna('')
-        df_consolidado = df_consolidado[['Fecha', 'Responsable','Tipo', 'Nombre', 'Actividad', 'Descripcion', 'Monto', 'GastoAbono', 'JornalDiario', 'JornalMensual', 'Enviado', 'Venta']]
-        df_consolidado.to_csv('out/consolidado2.csv', index=False)
+        df_consolidado = df_consolidado[['Fecha', 'Responsable','Tipo', 'Nombre', 'Actividad', 'Descripcion', 'Monto', 'GastoAbono', 'JornalDiario', 'JornalMensual', 'Enviado', 'Venta', 'KgSanFernando', 'KgLasPalmas']]
+        #df_consolidado.to_csv('out/consolidado2.csv', index=False)
         return df_consolidado
+
+    def getProduccion(self):
+        table_produccion = self.mongo_service.getProduccion()
+        print(table_produccion)
+        return table_produccion
 
     def updateExpenses(self, e_code, data):
         self.mongo_service.update_Expenses(e_code,data)
@@ -289,6 +312,9 @@ class Pipelines:
                     cell_tipo.font = font_black
                 if cell_tipo.value == "Venta Cacao":
                     cell_tipo.fill = fill_4
+                    cell_tipo.font = font_white
+                if cell_tipo.value == "Producción":
+                    cell_tipo.fill = PatternFill(start_color="6F4E37", end_color="6F4E37", fill_type="solid")
                     cell_tipo.font = font_white
 
             # --- Ajustar ancho de columnas automáticamente ---
